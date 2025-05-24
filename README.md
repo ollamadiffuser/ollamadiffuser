@@ -1,0 +1,302 @@
+# OllamaDiffuser
+
+一个类似 Ollama 的图像生成模型管理工具，专注于简化各种图像生成模型（Stable Diffusion 及其变体）的本地部署和管理。
+
+## ✨ 特性
+
+- 🚀 **一键式模型管理**：下载、运行、切换不同的图像生成模型
+- 🌐 **统一 API 接口**：RESTful API 便于集成其他应用
+- 🖥️ **跨平台支持**：Windows、macOS、Linux
+- ⚡ **硬件优化**：自动检测并优化 CUDA、MPS、CPU 性能
+- 📦 **组件管理**：支持 LoRA、ControlNet、VAE 等模型组件
+- 🔧 **CLI 工具**：命令行界面方便操作
+- 🌐 **Web UI**：可选的本地 Web 界面
+- 🎯 **Ollama风格**：类似Ollama的用户体验，专注于图像生成
+
+## 🚀 快速开始
+
+### 自动安装
+
+```bash
+# 克隆项目
+git clone https://github.com/your-username/ollamadiffuser.git
+cd ollamadiffuser
+
+# 运行快速开始脚本（推荐）
+python quick_start.py
+```
+
+### 手动安装
+
+```bash
+# 创建虚拟环境（推荐）
+python -m venv venv
+source venv/bin/activate  # Linux/Mac
+# 或 venv\Scripts\activate  # Windows
+
+# 安装依赖
+pip install -r requirements.txt
+
+# 安装项目
+pip install -e .
+
+# 测试安装
+python test_installation.py
+```
+
+### 基本用法
+
+```bash
+# 查看可用模型
+ollamadiffuser list
+
+# 下载模型（推荐从较小的模型开始）
+ollamadiffuser pull stable-diffusion-1.5
+
+# 运行模型服务
+ollamadiffuser run stable-diffusion-1.5
+
+# 在另一个终端生成图像
+curl -X POST http://localhost:8000/api/generate \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "A beautiful sunset over mountains"}' \
+  --output image.png
+
+# 或启动Web UI
+python -m ollamadiffuser --mode ui
+# 然后访问: http://localhost:8001
+```
+
+## 📋 支持的模型
+
+### 当前支持
+- **Stable Diffusion 1.5** - 经典的图像生成模型
+- **Stable Diffusion XL** - 更高质量的大模型
+- **Stable Diffusion 3/3.5** - 最新的SD3系列模型
+
+### 组件支持
+- **LoRA** - 低秩适应器，用于风格微调
+- **ControlNet** - 结构控制（计划中）
+- **VAE** - 变分自编码器（计划中）
+
+## 🛠️ 架构
+
+```
+ollamadiffuser/
+├── cli/                 # 命令行接口
+├── core/               # 核心功能
+│   ├── models/         # 模型管理
+│   ├── inference/      # 推理引擎
+│   └── config/         # 配置管理
+├── api/                # REST API
+├── ui/                 # Web 界面
+└── utils/              # 工具函数
+```
+
+## 🎯 CLI 命令
+
+### 模型管理
+```bash
+ollamadiffuser list                          # 列出所有模型
+ollamadiffuser pull MODEL_NAME               # 下载模型
+ollamadiffuser show MODEL_NAME               # 显示模型信息
+ollamadiffuser rm MODEL_NAME                 # 删除模型
+```
+
+### 服务管理
+```bash
+ollamadiffuser run MODEL_NAME                # 运行模型服务
+ollamadiffuser serve                         # 启动API服务器
+ollamadiffuser load MODEL_NAME               # 加载模型到内存
+ollamadiffuser unload                        # 卸载当前模型
+ollamadiffuser ps                            # 显示运行状态
+```
+
+### 不同运行模式
+```bash
+ollamadiffuser --mode cli                    # CLI模式（默认）
+ollamadiffuser --mode api                    # API服务器模式
+ollamadiffuser --mode ui                     # Web UI模式
+```
+
+## 🌐 API 文档
+
+### 图像生成
+
+```http
+POST /api/generate
+Content-Type: application/json
+
+{
+  "prompt": "A beautiful sunset over mountains",
+  "negative_prompt": "low quality, blurry",
+  "num_inference_steps": 28,
+  "guidance_scale": 3.5,
+  "width": 1024,
+  "height": 1024
+}
+```
+
+### 模型管理
+
+```http
+GET /api/models                     # 列出所有模型
+GET /api/models/running             # 获取当前运行的模型
+POST /api/models/load               # 加载模型
+POST /api/models/unload             # 卸载模型
+GET /api/models/{model_name}        # 获取模型信息
+POST /api/models/pull?model_name=X  # 下载模型
+DELETE /api/models/{model_name}     # 删除模型
+```
+
+### 健康检查
+```http
+GET /api/health                     # 服务健康状态
+```
+
+## 📦 依赖要求
+
+### Python版本
+- Python 3.8+
+
+### 主要依赖
+- **PyTorch** 2.0+ - 深度学习框架
+- **Diffusers** 0.21+ - HuggingFace的扩散模型库
+- **LitServe** 0.2+ - 高性能模型服务框架
+- **FastAPI** 0.100+ - Web API框架
+- **Click** 8.0+ - CLI框架
+- **Rich** 13.0+ - 终端美化
+
+### 硬件要求
+- **CPU**: 任何现代CPU（推理较慢）
+- **GPU**: NVIDIA GPU（推荐8GB+ VRAM）
+- **Apple Silicon**: M1/M2 Mac（通过MPS加速）
+- **内存**: 16GB+ RAM（推荐）
+- **存储**: 每个模型需要2-10GB空间
+
+## 🔧 配置
+
+配置文件位置：`~/.ollamadiffuser/config.json`
+
+```json
+{
+  "server": {
+    "host": "localhost",
+    "port": 8000,
+    "enable_cors": true
+  },
+  "models": {
+    "stable-diffusion-1.5": {
+      "name": "stable-diffusion-1.5",
+      "path": "/path/to/model",
+      "model_type": "sd15",
+      "variant": "fp16"
+    }
+  },
+  "current_model": "stable-diffusion-1.5"
+}
+```
+
+## 🧪 开发
+
+### 开发环境设置
+```bash
+# 克隆仓库
+git clone https://github.com/your-username/ollamadiffuser.git
+cd ollamadiffuser
+
+# 安装开发依赖
+pip install -r requirements-dev.txt
+
+# 安装项目（开发模式）
+pip install -e .
+```
+
+### 运行测试
+```bash
+# 安装测试
+python test_installation.py
+
+# 功能演示
+python demo.py
+```
+
+### 代码格式化
+```bash
+black ollamadiffuser/
+isort ollamadiffuser/
+flake8 ollamadiffuser/
+```
+
+## 🤝 贡献
+
+欢迎贡献！请遵循以下步骤：
+
+1. Fork 项目
+2. 创建功能分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 打开 Pull Request
+
+### 贡献指南
+- 遵循现有的代码风格
+- 添加适当的文档和注释
+- 包含测试用例
+- 更新相关文档
+
+## 🛣️ 路线图
+
+### v1.1 (计划中)
+- [ ] ControlNet 支持
+- [ ] 更多模型架构支持（FLUX.1等）
+- [ ] 批量生成功能
+- [ ] 图像到图像生成
+
+### v1.2 (计划中)
+- [ ] 插件系统
+- [ ] 远程模型仓库
+- [ ] 模型量化支持
+- [ ] Docker 支持
+
+### v2.0 (计划中)
+- [ ] 分布式推理
+- [ ] 云端模型支持
+- [ ] 更丰富的Web UI
+
+## ❓ 常见问题
+
+### Q: 如何设置HuggingFace Token？
+A: 某些模型需要HuggingFace账户。设置环境变量：`export HF_TOKEN=your_token_here`
+
+### Q: 为什么模型下载很慢？
+A: 模型文件通常很大（2-10GB）。建议使用稳定的网络连接，或考虑使用代理。
+
+### Q: 如何节省GPU内存？
+A: 
+- 使用较小的模型（如SD1.5而不是SDXL）
+- 减少生成分辨率
+- 启用attention slicing（自动启用）
+
+### Q: 支持哪些图像格式？
+A: 输出PNG格式，通过API可以获取PIL图像对象。
+
+## 📄 许可证
+
+MIT License - 详见 [LICENSE](LICENSE) 文件。
+
+## 🙏 致谢
+
+- [Ollama](https://ollama.ai/) - 灵感来源
+- [HuggingFace Diffusers](https://github.com/huggingface/diffusers) - 核心推理引擎
+- [LitServe](https://github.com/Lightning-AI/LitServe) - 高性能服务框架
+- [Stability AI](https://stability.ai/) - Stable Diffusion 模型
+
+## 📞 支持
+
+- 📧 Email: your.email@example.com
+- 🐛 Issues: [GitHub Issues](https://github.com/your-username/ollamadiffuser/issues)
+- 💬 Discussions: [GitHub Discussions](https://github.com/your-username/ollamadiffuser/discussions)
+
+---
+
+**OllamaDiffuser** - 让AI图像生成变得简单易用 🎨 

@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OllamaDiffuser Web UI</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+        
+        .status-bar {
+            background: #f8fafc;
+            padding: 20px 30px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        
+        .status-loaded {
+            background: #10b981;
+        }
+        
+        .status-unloaded {
+            background: #ef4444;
+        }
+        
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            padding: 30px;
+        }
+        
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .form-section {
+            background: #f8fafc;
+            padding: 25px;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .form-section h2 {
+            color: #1e293b;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #374151;
+            font-weight: 500;
+        }
+        
+        .form-group input, 
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+        
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            width: 100%;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(79, 70, 229, 0.3);
+        }
+        
+        .btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .result-section {
+            text-align: center;
+        }
+        
+        .result-image {
+            max-width: 100%;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .error-message {
+            background: #fee2e2;
+            color: #dc2626;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #fecaca;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+            color: #6b7280;
+        }
+        
+        .loading.show {
+            display: block;
+        }
+        
+        .spinner {
+            border: 3px solid #f3f4f6;
+            border-top: 3px solid #4f46e5;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .model-info {
+            background: #e0f2fe;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #b3e5fc;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎨 OllamaDiffuser</h1>
+            <p>图像生成模型管理工具</p>
+        </div>
+        
+        <div class="status-bar">
+            <div class="status-item">
+                <div class="status-indicator {{ 'status-loaded' if model_loaded else 'status-unloaded' }}"></div>
+                <span>模型状态: {{ '已加载' if model_loaded else '未加载' }}</span>
+            </div>
+            {% if current_model %}
+            <div class="status-item">
+                <span>当前模型: <strong>{{ current_model }}</strong></span>
+            </div>
+            {% endif %}
+            <div class="status-item">
+                <span>已安装模型: {{ installed_models|length }}</span>
+            </div>
+        </div>
+        
+        <div class="main-content">
+            <div class="form-section">
+                <h2>图像生成</h2>
+                
+                {% if not model_loaded %}
+                <div class="model-info">
+                    <strong>⚠️ 注意:</strong> 请先使用CLI加载模型: <code>ollamadiffuser load model-name</code>
+                </div>
+                {% endif %}
+                
+                {% if error_message %}
+                <div class="error-message">
+                    {{ error_message }}
+                </div>
+                {% endif %}
+                
+                <form method="post" action="/generate" id="generateForm">
+                    <div class="form-group">
+                        <label for="prompt">提示词 (Prompt)</label>
+                        <textarea name="prompt" id="prompt" rows="3" placeholder="描述你想要生成的图像..." required>{{ prompt or '' }}</textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="negative_prompt">负面提示词 (Negative Prompt)</label>
+                        <textarea name="negative_prompt" id="negative_prompt" rows="2" placeholder="描述你不想要的内容...">{{ negative_prompt or 'low quality, bad anatomy, worst quality, low resolution' }}</textarea>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="width">宽度</label>
+                            <input type="number" name="width" id="width" value="{{ width or 1024 }}" min="512" max="2048" step="64">
+                        </div>
+                        <div class="form-group">
+                            <label for="height">高度</label>
+                            <input type="number" name="height" id="height" value="{{ height or 1024 }}" min="512" max="2048" step="64">
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="num_inference_steps">推理步数</label>
+                            <input type="number" name="num_inference_steps" id="num_inference_steps" value="{{ num_inference_steps or 28 }}" min="1" max="100">
+                        </div>
+                        <div class="form-group">
+                            <label for="guidance_scale">引导强度</label>
+                            <input type="number" name="guidance_scale" id="guidance_scale" value="{{ guidance_scale or 3.5 }}" min="1" max="20" step="0.1">
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn" {{ 'disabled' if not model_loaded }}>
+                        🎨 生成图像
+                    </button>
+                </form>
+            </div>
+            
+            <div class="result-section">
+                <h2>生成结果</h2>
+                
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <p>正在生成图像，请稍候...</p>
+                </div>
+                
+                {% if image_b64 %}
+                <img src="data:image/png;base64,{{ image_b64 }}" alt="Generated Image" class="result-image">
+                <p style="color: #6b7280; margin-top: 15px;">
+                    <strong>提示词:</strong> {{ prompt }}
+                </p>
+                {% else %}
+                <div style="background: #f9fafb; border: 2px dashed #d1d5db; border-radius: 12px; padding: 60px 20px; color: #6b7280;">
+                    <div style="font-size: 3em; margin-bottom: 15px;">🖼️</div>
+                    <p>生成的图像将显示在这里</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        document.getElementById('generateForm').addEventListener('submit', function() {
+            document.getElementById('loading').classList.add('show');
+        });
+    </script>
+</body>
+</html> 
