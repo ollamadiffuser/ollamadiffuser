@@ -8,17 +8,17 @@ from pathlib import Path
 
 from ..core.models.manager import model_manager
 
-# 获取模板目录
+# Get templates directory
 templates_dir = Path(__file__).parent / "templates"
 templates = Jinja2Templates(directory=str(templates_dir))
 
 def create_ui_app() -> FastAPI:
-    """创建Web UI应用"""
+    """Create Web UI application"""
     app = FastAPI(title="OllamaDiffuser Web UI")
     
     @app.get("/", response_class=HTMLResponse)
     async def home(request: Request):
-        """主页"""
+        """Home page"""
         models = model_manager.list_available_models()
         installed_models = model_manager.list_installed_models()
         current_model = model_manager.get_current_model()
@@ -41,18 +41,18 @@ def create_ui_app() -> FastAPI:
         width: int = Form(1024),
         height: int = Form(1024)
     ):
-        """生成图像（Web UI）"""
+        """Generate image (Web UI)"""
         error_message = None
         image_b64 = None
         
         try:
             if not model_manager.is_model_loaded():
-                error_message = "没有模型已加载，请先加载模型"
+                error_message = "No model loaded, please load a model first"
             else:
-                # 获取推理引擎
+                # Get inference engine
                 engine = model_manager.loaded_model
                 
-                # 生成图像
+                # Generate image
                 image = engine.generate_image(
                     prompt=prompt,
                     negative_prompt=negative_prompt,
@@ -62,16 +62,16 @@ def create_ui_app() -> FastAPI:
                     height=height
                 )
                 
-                # 转换为base64
+                # Convert to base64
                 img_buffer = io.BytesIO()
                 image.save(img_buffer, format='PNG')
                 img_buffer.seek(0)
                 image_b64 = base64.b64encode(img_buffer.getvalue()).decode()
                 
         except Exception as e:
-            error_message = f"生成图像失败: {str(e)}"
+            error_message = f"Image generation failed: {str(e)}"
         
-        # 返回结果页面
+        # Return result page
         models = model_manager.list_available_models()
         installed_models = model_manager.list_installed_models()
         current_model = model_manager.get_current_model()

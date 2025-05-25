@@ -8,7 +8,7 @@ setup(
     version="1.0.0",
     author="Your Name",
     author_email="your.email@example.com",
-    description="一个类似 Ollama 的图像生成模型管理工具",
+    description="An Ollama-like image generation model management tool",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/your-username/ollamadiffuser",

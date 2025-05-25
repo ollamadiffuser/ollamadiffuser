@@ -15,9 +15,9 @@ from ..api.server import run_server
 console = Console()
 
 @click.group()
-@click.option('--verbose', '-v', is_flag=True, help='启用详细输出')
+@click.option('--verbose', '-v', is_flag=True, help='Enable verbose output')
 def cli(verbose):
-    """OllamaDiffuser - 图像生成模型管理工具"""
+    """OllamaDiffuser - Image generation model management tool"""
     if verbose:
         logging.basicConfig(level=logging.DEBUG)
     else:
@@ -25,83 +25,83 @@ def cli(verbose):
 
 @cli.command()
 @click.argument('model_name')
-@click.option('--force', '-f', is_flag=True, help='强制重新下载')
+@click.option('--force', '-f', is_flag=True, help='Force re-download')
 def pull(model_name: str, force: bool):
-    """下载模型"""
-    rprint(f"[blue]正在下载模型: {model_name}[/blue]")
+    """Download model"""
+    rprint(f"[blue]Downloading model: {model_name}[/blue]")
     
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
         console=console
     ) as progress:
-        task = progress.add_task(f"下载 {model_name}...", total=None)
+        task = progress.add_task(f"Downloading {model_name}...", total=None)
         
         if model_manager.pull_model(model_name, force=force):
-            progress.update(task, description=f"✅ {model_name} 下载完成")
-            rprint(f"[green]模型 {model_name} 下载成功![/green]")
+            progress.update(task, description=f"✅ {model_name} download completed")
+            rprint(f"[green]Model {model_name} downloaded successfully![/green]")
         else:
-            progress.update(task, description=f"❌ {model_name} 下载失败")
-            rprint(f"[red]模型 {model_name} 下载失败![/red]")
+            progress.update(task, description=f"❌ {model_name} download failed")
+            rprint(f"[red]Model {model_name} download failed![/red]")
             sys.exit(1)
 
 @cli.command()
 @click.argument('model_name')
-@click.option('--host', '-h', default=None, help='服务器主机地址')
-@click.option('--port', '-p', default=None, type=int, help='服务器端口')
+@click.option('--host', '-h', default=None, help='Server host address')
+@click.option('--port', '-p', default=None, type=int, help='Server port')
 def run(model_name: str, host: Optional[str], port: Optional[int]):
-    """运行模型服务"""
-    rprint(f"[blue]启动模型服务: {model_name}[/blue]")
+    """Run model service"""
+    rprint(f"[blue]Starting model service: {model_name}[/blue]")
     
-    # 检查模型是否已安装
+    # Check if model is installed
     if not model_manager.is_model_installed(model_name):
-        rprint(f"[red]模型 {model_name} 未安装。请先运行: ollamadiffuser pull {model_name}[/red]")
+        rprint(f"[red]Model {model_name} is not installed. Please run first: ollamadiffuser pull {model_name}[/red]")
         sys.exit(1)
     
-    # 加载模型
-    rprint("[yellow]正在加载模型...[/yellow]")
+    # Load model
+    rprint("[yellow]Loading model...[/yellow]")
     if not model_manager.load_model(model_name):
-        rprint(f"[red]加载模型 {model_name} 失败![/red]")
+        rprint(f"[red]Failed to load model {model_name}![/red]")
         sys.exit(1)
     
-    rprint(f"[green]模型 {model_name} 加载成功![/green]")
+    rprint(f"[green]Model {model_name} loaded successfully![/green]")
     
-    # 启动服务器
+    # Start server
     try:
         run_server(host=host, port=port)
     except KeyboardInterrupt:
-        rprint("\n[yellow]服务器已停止[/yellow]")
+        rprint("\n[yellow]Server stopped[/yellow]")
         model_manager.unload_model()
 
 @cli.command()
 def list():
-    """列出所有模型"""
+    """List all models"""
     available_models = model_manager.list_available_models()
     installed_models = model_manager.list_installed_models()
     current_model = model_manager.get_current_model()
     
-    # 创建表格
-    table = Table(title="OllamaDiffuser 模型列表")
-    table.add_column("模型名称", style="cyan", no_wrap=True)
-    table.add_column("状态", style="green")
-    table.add_column("大小", style="blue")
-    table.add_column("类型", style="magenta")
+    # Create table
+    table = Table(title="OllamaDiffuser Model List")
+    table.add_column("Model Name", style="cyan", no_wrap=True)
+    table.add_column("Status", style="green")
+    table.add_column("Size", style="blue")
+    table.add_column("Type", style="magenta")
     
     for model_name in available_models:
-        # 检查安装状态
+        # Check installation status
         if model_name in installed_models:
-            status = "✅ 已安装"
+            status = "✅ Installed"
             if model_name == current_model:
-                status += " (当前)"
+                status += " (current)"
             
-            # 获取模型信息
+            # Get model information
             info = model_manager.get_model_info(model_name)
             size = info.get('size', 'Unknown') if info else 'Unknown'
             model_type = info.get('model_type', 'Unknown') if info else 'Unknown'
         else:
-            status = "⬇️ 可下载"
+            status = "⬇️ Available"
             size = "-"
-            # 从注册表获取类型
+            # Get type from registry
             registry_info = model_manager.model_registry.get(model_name, {})
             model_type = registry_info.get('model_type', 'Unknown')
         
@@ -112,98 +112,98 @@ def list():
 @cli.command()
 @click.argument('model_name')
 def show(model_name: str):
-    """显示模型详细信息"""
+    """Show model detailed information"""
     info = model_manager.get_model_info(model_name)
     
     if info is None:
-        rprint(f"[red]模型 {model_name} 不存在[/red]")
+        rprint(f"[red]Model {model_name} does not exist[/red]")
         sys.exit(1)
     
-    rprint(f"[bold cyan]模型信息: {model_name}[/bold cyan]")
-    rprint(f"类型: {info.get('model_type', 'Unknown')}")
-    rprint(f"变体: {info.get('variant', 'Unknown')}")
-    rprint(f"已安装: {'是' if info.get('installed', False) else '否'}")
+    rprint(f"[bold cyan]Model Information: {model_name}[/bold cyan]")
+    rprint(f"Type: {info.get('model_type', 'Unknown')}")
+    rprint(f"Variant: {info.get('variant', 'Unknown')}")
+    rprint(f"Installed: {'Yes' if info.get('installed', False) else 'No'}")
     
     if info.get('installed', False):
-        rprint(f"本地路径: {info.get('local_path', 'Unknown')}")
-        rprint(f"大小: {info.get('size', 'Unknown')}")
+        rprint(f"Local Path: {info.get('local_path', 'Unknown')}")
+        rprint(f"Size: {info.get('size', 'Unknown')}")
     
     if 'parameters' in info and info['parameters']:
-        rprint("\n[bold]默认参数:[/bold]")
+        rprint("\n[bold]Default Parameters:[/bold]")
         for key, value in info['parameters'].items():
             rprint(f"  {key}: {value}")
     
     if 'components' in info and info['components']:
-        rprint("\n[bold]组件:[/bold]")
+        rprint("\n[bold]Components:[/bold]")
         for key, value in info['components'].items():
             rprint(f"  {key}: {value}")
 
 @cli.command()
 @click.argument('model_name')
-@click.confirmation_option(prompt='确定要删除这个模型吗？')
+@click.confirmation_option(prompt='Are you sure you want to delete this model?')
 def rm(model_name: str):
-    """删除模型"""
+    """Remove model"""
     if model_manager.remove_model(model_name):
-        rprint(f"[green]模型 {model_name} 删除成功![/green]")
+        rprint(f"[green]Model {model_name} removed successfully![/green]")
     else:
-        rprint(f"[red]删除模型 {model_name} 失败![/red]")
+        rprint(f"[red]Failed to remove model {model_name}![/red]")
         sys.exit(1)
 
 @cli.command()
 def ps():
-    """显示当前运行的模型"""
+    """Show currently running model"""
     if model_manager.is_model_loaded():
         current_model = model_manager.get_current_model()
         engine = model_manager.loaded_model
         info = engine.get_model_info() if engine else {}
         
-        rprint(f"[green]当前运行的模型: {current_model}[/green]")
+        rprint(f"[green]Currently running model: {current_model}[/green]")
         if info:
-            rprint(f"设备: {info.get('device', 'Unknown')}")
-            rprint(f"类型: {info.get('type', 'Unknown')}")
-            rprint(f"变体: {info.get('variant', 'Unknown')}")
+            rprint(f"Device: {info.get('device', 'Unknown')}")
+            rprint(f"Type: {info.get('type', 'Unknown')}")
+            rprint(f"Variant: {info.get('variant', 'Unknown')}")
     else:
-        rprint("[yellow]没有模型正在运行[/yellow]")
+        rprint("[yellow]No model is currently running[/yellow]")
 
 @cli.command()
-@click.option('--host', '-h', default=None, help='服务器主机地址')
-@click.option('--port', '-p', default=None, type=int, help='服务器端口')
+@click.option('--host', '-h', default=None, help='Server host address')
+@click.option('--port', '-p', default=None, type=int, help='Server port')
 def serve(host: Optional[str], port: Optional[int]):
-    """启动API服务器（不加载模型）"""
-    rprint("[blue]启动OllamaDiffuser API服务器...[/blue]")
+    """Start API server (without loading model)"""
+    rprint("[blue]Starting OllamaDiffuser API server...[/blue]")
     
     try:
         run_server(host=host, port=port)
     except KeyboardInterrupt:
-        rprint("\n[yellow]服务器已停止[/yellow]")
+        rprint("\n[yellow]Server stopped[/yellow]")
 
 @cli.command()
 @click.argument('model_name')
 def load(model_name: str):
-    """加载模型到内存"""
-    rprint(f"[blue]正在加载模型: {model_name}[/blue]")
+    """Load model into memory"""
+    rprint(f"[blue]Loading model: {model_name}[/blue]")
     
     if model_manager.load_model(model_name):
-        rprint(f"[green]模型 {model_name} 加载成功![/green]")
+        rprint(f"[green]Model {model_name} loaded successfully![/green]")
     else:
-        rprint(f"[red]加载模型 {model_name} 失败![/red]")
+        rprint(f"[red]Failed to load model {model_name}![/red]")
         sys.exit(1)
 
 @cli.command()
 def unload():
-    """卸载当前模型"""
+    """Unload current model"""
     if model_manager.is_model_loaded():
         current_model = model_manager.get_current_model()
         model_manager.unload_model()
-        rprint(f"[green]模型 {current_model} 已卸载[/green]")
+        rprint(f"[green]Model {current_model} unloaded[/green]")
     else:
-        rprint("[yellow]没有模型需要卸载[/yellow]")
+        rprint("[yellow]No model to unload[/yellow]")
 
 @cli.command()
 def version():
-    """显示版本信息"""
+    """Show version information"""
     rprint("[bold cyan]OllamaDiffuser v1.0.0[/bold cyan]")
-    rprint("图像生成模型管理工具")
+    rprint("Image generation model management tool")
 
 if __name__ == '__main__':
     cli() 

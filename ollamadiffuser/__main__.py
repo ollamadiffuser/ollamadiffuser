@@ -7,37 +7,37 @@ from .ui.web import create_ui_app
 from .core.config.settings import settings
 
 def main():
-    """主入口函数"""
+    """Main entry function"""
     parser = argparse.ArgumentParser(
-        description='OllamaDiffuser - 图像生成模型管理工具'
+        description='OllamaDiffuser - Image generation model management tool'
     )
     parser.add_argument(
         '--mode', 
         choices=['cli', 'api', 'ui'], 
         default='cli',
-        help='运行模式: cli (命令行), api (API服务器), ui (Web界面)'
+        help='Running mode: cli (command line), api (API server), ui (Web interface)'
     )
-    parser.add_argument('--host', default=None, help='服务器主机地址')
-    parser.add_argument('--port', type=int, default=None, help='服务器端口')
-    parser.add_argument('--verbose', '-v', action='store_true', help='详细输出')
+    parser.add_argument('--host', default=None, help='Server host address')
+    parser.add_argument('--port', type=int, default=None, help='Server port')
+    parser.add_argument('--verbose', '-v', action='store_true', help='Verbose output')
     
     args, unknown = parser.parse_known_args()
     
     if args.mode == 'cli':
-        # 命令行模式
+        # Command line mode
         sys.argv = [sys.argv[0]] + unknown
         cli()
     elif args.mode == 'api':
-        # API服务器模式
-        print("启动OllamaDiffuser API服务器...")
+        # API server mode
+        print("Starting OllamaDiffuser API server...")
         run_server(host=args.host, port=args.port)
     elif args.mode == 'ui':
-        # Web UI模式
-        print("启动OllamaDiffuser Web UI...")
+        # Web UI mode
+        print("Starting OllamaDiffuser Web UI...")
         import uvicorn
         app = create_ui_app()
         host = args.host or settings.server.host
-        port = args.port or (settings.server.port + 1)  # Web UI使用不同端口
+        port = args.port or (settings.server.port + 1)  # Web UI uses different port
         uvicorn.run(app, host=host, port=port)
 
 if __name__ == '__main__':

@@ -10,13 +10,13 @@ from ..config.settings import settings, ModelConfig
 logger = logging.getLogger(__name__)
 
 class ModelManager:
-    """模型管理器"""
+    """Model manager"""
     
     def __init__(self):
         self.loaded_model: Optional[object] = None
         self.current_model_name: Optional[str] = None
         
-        # 预定义的模型库
+        # Predefined model registry
         self.model_registry = {
             "stable-diffusion-3.5-medium": {
                 "repo_id": "stabilityai/stable-diffusion-3.5-medium",
@@ -54,19 +54,19 @@ class ModelManager:
         }
     
     def list_available_models(self) -> List[str]:
-        """列出所有可用的模型"""
+        """List all available models"""
         return list(self.model_registry.keys())
     
     def list_installed_models(self) -> List[str]:
-        """列出已安装的模型"""
+        """List installed models"""
         return list(settings.models.keys())
     
     def is_model_installed(self, model_name: str) -> bool:
-        """检查模型是否已安装"""
+        """Check if model is installed"""
         return model_name in settings.models
     
     def get_model_info(self, model_name: str) -> Optional[Dict]:
-        """获取模型信息"""
+        """Get model information"""
         if model_name in self.model_registry:
             info = self.model_registry[model_name].copy()
             info['installed'] = self.is_model_installed(model_name)
@@ -78,7 +78,7 @@ class ModelManager:
         return None
     
     def _get_model_size(self, model_path: str) -> str:
-        """获取模型大小"""
+        """Get model size"""
         try:
             path = Path(model_path)
             if path.is_file():
@@ -86,7 +86,7 @@ class ModelManager:
             else:
                 size = sum(f.stat().st_size for f in path.rglob('*') if f.is_file())
             
-            # 转换为人类可读格式
+            # Convert to human readable format
             for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
                 if size < 1024.0:
                     return f"{size:.1f} {unit}"
@@ -96,26 +96,26 @@ class ModelManager:
             return "Unknown"
     
     def pull_model(self, model_name: str, force: bool = False) -> bool:
-        """下载模型"""
+        """Download model"""
         if not force and self.is_model_installed(model_name):
-            logger.info(f"模型 {model_name} 已存在")
+            logger.info(f"Model {model_name} already exists")
             return True
         
         if model_name not in self.model_registry:
-            logger.error(f"未知模型: {model_name}")
+            logger.error(f"Unknown model: {model_name}")
             return False
         
         model_info = self.model_registry[model_name]
         model_path = settings.get_model_path(model_name)
         
         try:
-            # 确保HuggingFace token已设置
+            # Ensure HuggingFace token is set
             if settings.hf_token:
                 login(token=settings.hf_token)
             
-            logger.info(f"正在下载模型: {model_name}")
+            logger.info(f"Downloading model: {model_name}")
             
-            # 下载主模型
+            # Download main model
             snapshot_download(
                 repo_id=model_info["repo_id"],
                 local_dir=model_path,
@@ -123,7 +123,7 @@ class ModelManager:
                 cache_dir=settings.cache_dir
             )
             
-            # 下载组件 (如 LoRA)
+            # Download components (such as LoRA)
             if "components" in model_info:
                 components_path = model_path / "components"
                 components_path.mkdir(exist_ok=True)
@@ -133,7 +133,7 @@ class ModelManager:
                     comp_path.mkdir(exist_ok=True)
                     
                     if "filename" in comp_info:
-                        # 下载单个文件
+                        # Download single file
                         hf_hub_download(
                             repo_id=comp_info["repo_id"],
                             filename=comp_info["filename"],
@@ -141,7 +141,7 @@ class ModelManager:
                             cache_dir=settings.cache_dir
                         )
                     else:
-                        # 下载整个仓库
+                        # Download entire repository
                         snapshot_download(
                             repo_id=comp_info["repo_id"],
                             local_dir=comp_path,
@@ -149,7 +149,7 @@ class ModelManager:
                             cache_dir=settings.cache_dir
                         )
             
-            # 添加到配置
+            # Add to configuration
             model_config = ModelConfig(
                 name=model_name,
                 path=str(model_path),
@@ -160,55 +160,55 @@ class ModelManager:
             )
             
             settings.add_model(model_config)
-            logger.info(f"模型 {model_name} 下载完成")
+            logger.info(f"Model {model_name} download completed")
             return True
             
         except Exception as e:
-            logger.error(f"下载模型失败: {e}")
-            # 清理失败的下载
+            logger.error(f"Model download failed: {e}")
+            # Clean up failed download
             if model_path.exists():
                 shutil.rmtree(model_path)
             return False
     
     def remove_model(self, model_name: str) -> bool:
-        """删除模型"""
+        """Remove model"""
         if not self.is_model_installed(model_name):
-            logger.error(f"模型 {model_name} 未安装")
+            logger.error(f"Model {model_name} is not installed")
             return False
         
         try:
-            # 如果当前正在使用这个模型，先卸载
+            # If currently using this model, unload it first
             if self.current_model_name == model_name:
                 self.unload_model()
             
-            # 删除模型文件
+            # Delete model files
             model_config = settings.models[model_name]
             model_path = Path(model_config.path)
             if model_path.exists():
                 shutil.rmtree(model_path)
             
-            # 从配置中移除
+            # Remove from configuration
             settings.remove_model(model_name)
             
-            logger.info(f"模型 {model_name} 已删除")
+            logger.info(f"Model {model_name} has been removed")
             return True
             
         except Exception as e:
-            logger.error(f"删除模型失败: {e}")
+            logger.error(f"Failed to remove model: {e}")
             return False
     
     def load_model(self, model_name: str) -> bool:
-        """加载模型到内存"""
+        """Load model into memory"""
         if not self.is_model_installed(model_name):
-            logger.error(f"模型 {model_name} 未安装")
+            logger.error(f"Model {model_name} is not installed")
             return False
         
-        # 如果已经加载了相同的模型，直接返回
+        # If the same model is already loaded, return directly
         if self.current_model_name == model_name:
-            logger.info(f"模型 {model_name} 已加载")
+            logger.info(f"Model {model_name} is already loaded")
             return True
         
-        # 卸载当前模型
+        # Unload current model
         if self.loaded_model is not None:
             self.unload_model()
         
@@ -222,35 +222,35 @@ class ModelManager:
                 self.loaded_model = engine
                 self.current_model_name = model_name
                 settings.set_current_model(model_name)
-                logger.info(f"模型 {model_name} 加载成功")
+                logger.info(f"Model {model_name} loaded successfully")
                 return True
             else:
-                logger.error(f"模型 {model_name} 加载失败")
+                logger.error(f"Model {model_name} failed to load")
                 return False
                 
         except Exception as e:
-            logger.error(f"加载模型失败: {e}")
+            logger.error(f"Failed to load model: {e}")
             return False
     
     def unload_model(self):
-        """卸载当前模型"""
+        """Unload current model"""
         if self.loaded_model is not None:
             try:
                 self.loaded_model.unload()
-                logger.info(f"模型 {self.current_model_name} 已卸载")
+                logger.info(f"Model {self.current_model_name} unloaded")
             except Exception as e:
-                logger.error(f"卸载模型失败: {e}")
+                logger.error(f"Failed to unload model: {e}")
             finally:
                 self.loaded_model = None
                 self.current_model_name = None
     
     def get_current_model(self) -> Optional[str]:
-        """获取当前加载的模型名称"""
+        """Get current loaded model name"""
         return self.current_model_name
     
     def is_model_loaded(self) -> bool:
-        """检查是否有模型已加载"""
+        """Check if a model is loaded"""
         return self.loaded_model is not None
 
-# 全局模型管理器实例
+# Global model manager instance
 model_manager = ModelManager() 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-OllamaDiffuser 安装测试脚本
-验证所有组件是否正确安装和配置
+OllamaDiffuser Installation Test Script
+Verify that all components are correctly installed and configured
 """
 
 import sys
@@ -10,8 +10,8 @@ import subprocess
 from pathlib import Path
 
 def test_imports():
-    """测试所有必要的包导入"""
-    print("🔍 测试包导入...")
+    """Test all required package imports"""
+    print("🔍 Testing package imports...")
     
     required_packages = [
         'torch',
@@ -44,16 +44,16 @@ def test_imports():
             failed_imports.append(package)
     
     if failed_imports:
-        print(f"\n❌ 失败的导入: {', '.join(failed_imports)}")
-        print("请运行: pip install -r requirements.txt")
+        print(f"\n❌ Failed imports: {', '.join(failed_imports)}")
+        print("Please run: pip install -r requirements.txt")
         return False
     else:
-        print("✅ 所有必要包导入成功!")
+        print("✅ All required packages imported successfully!")
         return True
 
 def test_ollamadiffuser_imports():
-    """测试OllamaDiffuser组件导入"""
-    print("\n🔍 测试OllamaDiffuser组件导入...")
+    """Test OllamaDiffuser component imports"""
+    print("\n🔍 Testing OllamaDiffuser component imports...")
     
     components = [
         'ollamadiffuser.core.config.settings',
@@ -75,145 +75,145 @@ def test_ollamadiffuser_imports():
             failed_imports.append(component)
     
     if failed_imports:
-        print(f"\n❌ 失败的组件导入: {', '.join(failed_imports)}")
+        print(f"\n❌ Failed component imports: {', '.join(failed_imports)}")
         return False
     else:
-        print("✅ 所有OllamaDiffuser组件导入成功!")
+        print("✅ All OllamaDiffuser components imported successfully!")
         return True
 
 def test_hardware():
-    """测试硬件支持"""
-    print("\n🔍 测试硬件支持...")
+    """Test hardware support"""
+    print("\n🔍 Testing hardware support...")
     
     try:
         import torch
         
-        # 测试CUDA
+        # Test CUDA
         if torch.cuda.is_available():
-            print(f"  ✅ CUDA 可用: {torch.cuda.get_device_name(0)}")
-            print(f"     CUDA 版本: {torch.version.cuda}")
-            print(f"     GPU 内存: {torch.cuda.get_device_properties(0).total_memory / 1e9:.1f} GB")
+            print(f"  ✅ CUDA available: {torch.cuda.get_device_name(0)}")
+            print(f"     CUDA version: {torch.version.cuda}")
+            print(f"     GPU memory: {torch.cuda.get_device_properties(0).total_memory / 1e9:.1f} GB")
         else:
-            print("  ⚠️  CUDA 不可用")
+            print("  ⚠️  CUDA not available")
         
-        # 测试MPS (Apple Silicon)
+        # Test MPS (Apple Silicon)
         if torch.backends.mps.is_available():
-            print("  ✅ MPS (Apple Silicon) 可用")
+            print("  ✅ MPS (Apple Silicon) available")
         else:
-            print("  ⚠️  MPS 不可用")
+            print("  ⚠️  MPS not available")
         
-        print(f"  ✅ CPU 可用: {torch.get_num_threads()} 线程")
-        print(f"  ✅ PyTorch 版本: {torch.__version__}")
+        print(f"  ✅ CPU available: {torch.get_num_threads()} threads")
+        print(f"  ✅ PyTorch version: {torch.__version__}")
         
         return True
         
     except Exception as e:
-        print(f"  ❌ 硬件测试失败: {e}")
+        print(f"  ❌ Hardware test failed: {e}")
         return False
 
 def test_cli():
-    """测试CLI命令"""
-    print("\n🔍 测试CLI命令...")
+    """Test CLI commands"""
+    print("\n🔍 Testing CLI commands...")
     
     try:
-        # 测试help命令
+        # Test help command
         result = subprocess.run([
             sys.executable, '-m', 'ollamadiffuser.cli.main', '--help'
         ], capture_output=True, text=True, timeout=10)
         
         if result.returncode == 0:
-            print("  ✅ CLI help 命令工作正常")
+            print("  ✅ CLI help command works properly")
         else:
-            print(f"  ❌ CLI help 命令失败: {result.stderr}")
+            print(f"  ❌ CLI help command failed: {result.stderr}")
             return False
         
-        # 测试list命令
+        # Test list command
         result = subprocess.run([
             sys.executable, '-m', 'ollamadiffuser.cli.main', 'list'
         ], capture_output=True, text=True, timeout=10)
         
         if result.returncode == 0:
-            print("  ✅ CLI list 命令工作正常")
+            print("  ✅ CLI list command works properly")
         else:
-            print(f"  ❌ CLI list 命令失败: {result.stderr}")
+            print(f"  ❌ CLI list command failed: {result.stderr}")
             return False
         
         return True
         
     except Exception as e:
-        print(f"  ❌ CLI测试失败: {e}")
+        print(f"  ❌ CLI test failed: {e}")
         return False
 
 def test_config():
-    """测试配置系统"""
-    print("\n🔍 测试配置系统...")
+    """Test configuration system"""
+    print("\n🔍 Testing configuration system...")
     
     try:
         from ollamadiffuser.core.config.settings import settings
         
-        print(f"  ✅ 配置目录: {settings.config_dir}")
-        print(f"  ✅ 模型目录: {settings.models_dir}")
-        print(f"  ✅ 缓存目录: {settings.cache_dir}")
-        print(f"  ✅ 服务器配置: {settings.server.host}:{settings.server.port}")
+        print(f"  ✅ Configuration directory: {settings.config_dir}")
+        print(f"  ✅ Models directory: {settings.models_dir}")
+        print(f"  ✅ Cache directory: {settings.cache_dir}")
+        print(f"  ✅ Server configuration: {settings.server.host}:{settings.server.port}")
         
-        # 检查目录是否创建
+        # Check if directory is created
         if settings.config_dir.exists():
-            print("  ✅ 配置目录已创建")
+            print("  ✅ Configuration directory created")
         else:
-            print("  ❌ 配置目录未创建")
+            print("  ❌ Configuration directory not created")
             return False
         
         return True
         
     except Exception as e:
-        print(f"  ❌ 配置测试失败: {e}")
+        print(f"  ❌ Configuration test failed: {e}")
         return False
 
 def test_model_manager():
-    """测试模型管理器"""
-    print("\n🔍 测试模型管理器...")
+    """Test model manager"""
+    print("\n🔍 Testing model manager...")
     
     try:
         from ollamadiffuser.core.models.manager import model_manager
         
-        # 测试可用模型列表
+        # Test available models list
         available_models = model_manager.list_available_models()
-        print(f"  ✅ 可用模型: {len(available_models)} 个")
+        print(f"  ✅ Available models: {len(available_models)} models")
         for model in available_models:
             print(f"    • {model}")
         
-        # 测试已安装模型列表
+        # Test installed models list
         installed_models = model_manager.list_installed_models()
-        print(f"  ✅ 已安装模型: {len(installed_models)} 个")
+        print(f"  ✅ Installed models: {len(installed_models)} models")
         
-        # 测试模型信息
+        # Test model information
         if available_models:
             model_name = available_models[0]
             info = model_manager.get_model_info(model_name)
             if info:
-                print(f"  ✅ 模型信息获取成功: {model_name}")
+                print(f"  ✅ Model information retrieved successfully: {model_name}")
             else:
-                print(f"  ❌ 模型信息获取失败: {model_name}")
+                print(f"  ❌ Failed to retrieve model information: {model_name}")
                 return False
         
         return True
         
     except Exception as e:
-        print(f"  ❌ 模型管理器测试失败: {e}")
+        print(f"  ❌ Model manager test failed: {e}")
         return False
 
 def main():
-    """主测试函数"""
-    print("🧪 OllamaDiffuser 安装测试")
+    """Main test function"""
+    print("🧪 OllamaDiffuser Installation Test")
     print("=" * 50)
     
     tests = [
-        ("依赖包导入", test_imports),
-        ("组件导入", test_ollamadiffuser_imports),
-        ("硬件支持", test_hardware),
-        ("配置系统", test_config),
-        ("模型管理器", test_model_manager),
-        ("CLI命令", test_cli),
+        ("Package imports", test_imports),
+        ("Component imports", test_ollamadiffuser_imports),
+        ("Hardware support", test_hardware),
+        ("Configuration system", test_config),
+        ("Model manager", test_model_manager),
+        ("CLI commands", test_cli),
     ]
     
     passed = 0
@@ -225,23 +225,23 @@ def main():
         try:
             if test_func():
                 passed += 1
-                print(f"✅ {test_name} 测试通过")
+                print(f"✅ {test_name} test passed")
             else:
-                print(f"❌ {test_name} 测试失败")
+                print(f"❌ {test_name} test failed")
         except Exception as e:
-            print(f"❌ {test_name} 测试异常: {e}")
+            print(f"❌ {test_name} test exception: {e}")
     
-    print(f"\n📊 测试结果: {passed}/{total} 通过")
+    print(f"\n📊 Test results: {passed}/{total} passed")
     
     if passed == total:
-        print("🎉 所有测试通过! OllamaDiffuser 安装成功!")
-        print("\n🚀 快速开始:")
-        print("1. 查看可用模型: ollamadiffuser list")
-        print("2. 下载模型: ollamadiffuser pull stable-diffusion-3.5-medium")
-        print("3. 运行服务: ollamadiffuser run stable-diffusion-3.5-medium")
+        print("🎉 All tests passed! OllamaDiffuser installation successful!")
+        print("\n🚀 Quick start:")
+        print("1. View available models: ollamadiffuser list")
+        print("2. Download model: ollamadiffuser pull stable-diffusion-3.5-medium")
+        print("3. Run service: ollamadiffuser run stable-diffusion-3.5-medium")
         return True
     else:
-        print("❌ 有测试失败，请检查安装!")
+        print("❌ Some tests failed, please check installation!")
         return False
 
 if __name__ == "__main__":

@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class ModelConfig:
-    """单个模型的配置"""
+    """Configuration for a single model"""
     name: str
     path: str
     model_type: str  # "sd15", "sdxl", "sd3", "flux", etc.
@@ -19,7 +19,7 @@ class ModelConfig:
 
 @dataclass
 class ServerConfig:
-    """服务器配置"""
+    """Server configuration"""
     host: str = "localhost"
     port: int = 8000
     max_queue_size: int = 100
@@ -27,7 +27,7 @@ class ServerConfig:
     enable_cors: bool = True
 
 class Settings:
-    """应用全局设置"""
+    """Global application settings"""
     
     def __init__(self):
         self.config_dir = Path.home() / ".ollamadiffuser"
@@ -35,33 +35,33 @@ class Settings:
         self.cache_dir = self.config_dir / "cache"
         self.config_file = self.config_dir / "config.json"
         
-        # 确保目录存在
+        # Ensure directories exist
         self.config_dir.mkdir(exist_ok=True)
         self.models_dir.mkdir(exist_ok=True)
         self.cache_dir.mkdir(exist_ok=True)
         
-        # 默认配置
+        # Default configuration
         self.server = ServerConfig()
         self.models: Dict[str, ModelConfig] = {}
         self.current_model: Optional[str] = None
         self.hf_token: Optional[str] = os.environ.get('HF_TOKEN')
         
-        # 加载配置文件
+        # Load configuration file
         self.load_config()
     
     def load_config(self):
-        """从配置文件加载设置"""
+        """Load settings from configuration file"""
         if self.config_file.exists():
             try:
                 with open(self.config_file, 'r', encoding='utf-8') as f:
                     config_data = json.load(f)
                 
-                # 加载服务器配置
+                # Load server configuration
                 if 'server' in config_data:
                     server_data = config_data['server']
                     self.server = ServerConfig(**server_data)
                 
-                # 加载模型配置
+                # Load model configuration
                 if 'models' in config_data:
                     self.models = {
                         name: ModelConfig(**model_data)
@@ -70,13 +70,13 @@ class Settings:
                 
                 self.current_model = config_data.get('current_model')
                 
-                logger.info(f"已加载配置文件: {self.config_file}")
+                logger.info(f"Configuration file loaded: {self.config_file}")
                 
             except Exception as e:
-                logger.error(f"加载配置文件失败: {e}")
+                logger.error(f"Failed to load configuration file: {e}")
     
     def save_config(self):
-        """保存设置到配置文件"""
+        """Save settings to configuration file"""
         try:
             config_data = {
                 'server': {
@@ -103,18 +103,18 @@ class Settings:
             with open(self.config_file, 'w', encoding='utf-8') as f:
                 json.dump(config_data, f, indent=2, ensure_ascii=False)
             
-            logger.info(f"配置已保存到: {self.config_file}")
+            logger.info(f"Configuration saved to: {self.config_file}")
             
         except Exception as e:
-            logger.error(f"保存配置文件失败: {e}")
+            logger.error(f"Failed to save configuration file: {e}")
     
     def add_model(self, model_config: ModelConfig):
-        """添加模型配置"""
+        """Add model configuration"""
         self.models[model_config.name] = model_config
         self.save_config()
     
     def remove_model(self, model_name: str):
-        """移除模型配置"""
+        """Remove model configuration"""
         if model_name in self.models:
             del self.models[model_name]
             if self.current_model == model_name:
@@ -122,16 +122,16 @@ class Settings:
             self.save_config()
     
     def set_current_model(self, model_name: str):
-        """设置当前使用的模型"""
+        """Set current model to use"""
         if model_name in self.models:
             self.current_model = model_name
             self.save_config()
         else:
-            raise ValueError(f"模型 '{model_name}' 不存在")
+            raise ValueError(f"Model '{model_name}' does not exist")
     
     def get_model_path(self, model_name: str) -> Path:
-        """获取模型的存储路径"""
+        """Get storage path for model"""
         return self.models_dir / model_name
 
-# 全局设置实例
+# Global settings instance
 settings = Settings() 
