@@ -4,8 +4,9 @@ from pathlib import Path
 from typing import Dict, List, Optional, Union
 import logging
 import hashlib
-from huggingface_hub import snapshot_download, login, hf_hub_download
+from huggingface_hub import login
 from ..config.settings import settings, ModelConfig
+from ..utils.download_utils import robust_snapshot_download, robust_file_download
 
 logger = logging.getLogger(__name__)
 
@@ -95,14 +96,18 @@ class ModelManager:
         except Exception:
             return "Unknown"
     
-    def pull_model(self, model_name: str, force: bool = False) -> bool:
-        """Download model"""
+    def pull_model(self, model_name: str, force: bool = False, progress_callback=None) -> bool:
+        """Download model using robust download utilities"""
         if not force and self.is_model_installed(model_name):
             logger.info(f"Model {model_name} already exists")
+            if progress_callback:
+                progress_callback(f"Model {model_name} already installed")
             return True
         
         if model_name not in self.model_registry:
             logger.error(f"Unknown model: {model_name}")
+            if progress_callback:
+                progress_callback(f"Error: Unknown model {model_name}")
             return False
         
         model_info = self.model_registry[model_name]
@@ -114,13 +119,18 @@ class ModelManager:
                 login(token=settings.hf_token)
             
             logger.info(f"Downloading model: {model_name}")
+            if progress_callback:
+                progress_callback(f"Starting download of {model_name}")
             
-            # Download main model
-            snapshot_download(
+            # Download main model using robust downloader
+            robust_snapshot_download(
                 repo_id=model_info["repo_id"],
-                local_dir=model_path,
-                local_dir_use_symlinks=False,
-                cache_dir=settings.cache_dir
+                local_dir=str(model_path),
+                cache_dir=str(settings.cache_dir),
+                max_retries=3,
+                initial_workers=2,
+                force_download=force,
+                progress_callback=progress_callback
             )
             
             # Download components (such as LoRA)
@@ -132,21 +142,29 @@ class ModelManager:
                     comp_path = components_path / comp_name
                     comp_path.mkdir(exist_ok=True)
                     
+                    if progress_callback:
+                        progress_callback(f"Downloading component: {comp_name}")
+                    
                     if "filename" in comp_info:
-                        # Download single file
-                        hf_hub_download(
+                        # Download single file using robust downloader
+                        robust_file_download(
                             repo_id=comp_info["repo_id"],
                             filename=comp_info["filename"],
-                            local_dir=comp_path,
-                            cache_dir=settings.cache_dir
+                            local_dir=str(comp_path),
+                            cache_dir=str(settings.cache_dir),
+                            max_retries=3,
+                            progress_callback=progress_callback
                         )
                     else:
-                        # Download entire repository
-                        snapshot_download(
+                        # Download entire repository using robust downloader
+                        robust_snapshot_download(
                             repo_id=comp_info["repo_id"],
-                            local_dir=comp_path,
-                            local_dir_use_symlinks=False,
-                            cache_dir=settings.cache_dir
+                            local_dir=str(comp_path),
+                            cache_dir=str(settings.cache_dir),
+                            max_retries=3,
+                            initial_workers=1,  # Use fewer workers for components
+                            force_download=force,
+                            progress_callback=progress_callback
                         )
             
             # Add to configuration
@@ -161,13 +179,22 @@ class ModelManager:
             
             settings.add_model(model_config)
             logger.info(f"Model {model_name} download completed")
+            if progress_callback:
+                progress_callback(f"✅ {model_name} download completed successfully")
             return True
             
         except Exception as e:
             logger.error(f"Model download failed: {e}")
+            if progress_callback:
+                progress_callback(f"❌ Download failed: {str(e)}")
+            
             # Clean up failed download
             if model_path.exists():
-                shutil.rmtree(model_path)
+                try:
+                    shutil.rmtree(model_path)
+                    logger.info(f"Cleaned up failed download directory: {model_path}")
+                except Exception as cleanup_error:
+                    logger.warning(f"Failed to clean up directory {model_path}: {cleanup_error}")
             return False
     
     def remove_model(self, model_name: str) -> bool:
@@ -257,11 +284,12 @@ class ModelManager:
         return settings.current_model
     
     def is_model_loaded(self) -> bool:
-        """Check if a model is loaded"""
-        # Check in-memory state first
-        if self.loaded_model is not None:
-            return True
-        # Check if there's a persisted current model (might be in another process)
+        """Check if a model is loaded in memory"""
+        # Only check in-memory state - a model is truly loaded only if it's in memory
+        return self.loaded_model is not None
+    
+    def has_current_model(self) -> bool:
+        """Check if there's a current model set (may not be loaded in memory)"""
         return settings.current_model is not None
     
     def is_server_running(self) -> bool:

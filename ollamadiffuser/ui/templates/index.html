@@ -213,6 +213,56 @@
             margin-bottom: 20px;
             border: 1px solid #b3e5fc;
         }
+        
+        .model-management {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .model-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .model-controls select {
+            flex: 1;
+            min-width: 200px;
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            background: white;
+        }
+        
+        .btn-small {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            white-space: nowrap;
+        }
+        
+        .btn-small:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 5px 15px rgba(79, 70, 229, 0.3);
+        }
+        
+        .btn-small.btn-danger {
+            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+        }
+        
+        .btn-small.btn-danger:hover {
+            box-shadow: 0 5px 15px rgba(220, 38, 38, 0.3);
+        }
     </style>
 </head>
 <body>
@@ -237,13 +287,43 @@
             </div>
         </div>
         
+        <div class="model-management">
+            <h3>🔧 模型管理</h3>
+            {% if installed_models %}
+            <form method="post" action="/load_model" style="margin-bottom: 15px;">
+                <div class="model-controls">
+                    <select name="model_name" required>
+                        <option value="">选择要加载的模型...</option>
+                        {% for model in installed_models %}
+                        <option value="{{ model }}" {{ 'selected' if model == current_model else '' }}>{{ model }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="btn-small">🚀 加载模型</button>
+                </div>
+            </form>
+            {% endif %}
+            
+            {% if model_loaded %}
+            <form method="post" action="/unload_model">
+                <button type="submit" class="btn-small btn-danger">🔄 卸载当前模型</button>
+            </form>
+            {% endif %}
+            
+            {% if not installed_models %}
+            <div class="model-info">
+                <strong>📥 没有已安装的模型</strong><br>
+                请使用CLI安装模型: <code>ollamadiffuser pull model-name</code>
+            </div>
+            {% endif %}
+        </div>
+        
         <div class="main-content">
             <div class="form-section">
                 <h2>图像生成</h2>
                 
                 {% if not model_loaded %}
                 <div class="model-info">
-                    <strong>⚠️ 注意:</strong> 请先使用CLI加载模型: <code>ollamadiffuser load model-name</code>
+                    <strong>⚠️ 注意:</strong> 请先在上方的模型管理区域加载一个模型，或使用CLI: <code>ollamadiffuser load model-name</code>
                 </div>
                 {% endif %}
                 

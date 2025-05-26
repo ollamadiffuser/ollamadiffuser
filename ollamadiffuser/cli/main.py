@@ -37,7 +37,11 @@ def pull(model_name: str, force: bool):
     ) as progress:
         task = progress.add_task(f"Downloading {model_name}...", total=None)
         
-        if model_manager.pull_model(model_name, force=force):
+        def progress_callback(message: str):
+            """Update progress display with download status"""
+            progress.update(task, description=message)
+        
+        if model_manager.pull_model(model_name, force=force, progress_callback=progress_callback):
             progress.update(task, description=f"✅ {model_name} download completed")
             rprint(f"[green]Model {model_name} downloaded successfully![/green]")
         else:
