@@ -32,7 +32,6 @@ setup(
         "diffusers>=0.21.0",
         "transformers>=4.25.0",
         "accelerate>=0.20.0",
-        "litserve>=0.2.0",
         "fastapi>=0.100.0",
         "uvicorn>=0.23.0",
         "huggingface-hub>=0.16.0",

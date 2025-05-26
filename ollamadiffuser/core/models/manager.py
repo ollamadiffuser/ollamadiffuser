@@ -243,14 +243,37 @@ class ModelManager:
             finally:
                 self.loaded_model = None
                 self.current_model_name = None
+        
+        # Also clear the persisted state
+        settings.current_model = None
+        settings.save_config()
     
     def get_current_model(self) -> Optional[str]:
         """Get current loaded model name"""
-        return self.current_model_name
+        # First check in-memory state
+        if self.current_model_name:
+            return self.current_model_name
+        # Then check persisted state
+        return settings.current_model
     
     def is_model_loaded(self) -> bool:
         """Check if a model is loaded"""
-        return self.loaded_model is not None
+        # Check in-memory state first
+        if self.loaded_model is not None:
+            return True
+        # Check if there's a persisted current model (might be in another process)
+        return settings.current_model is not None
+    
+    def is_server_running(self) -> bool:
+        """Check if the server is actually running"""
+        try:
+            import requests
+            host = settings.server.host
+            port = settings.server.port
+            response = requests.get(f"http://{host}:{port}/api/health", timeout=2)
+            return response.status_code == 200
+        except:
+            return False
 
 # Global model manager instance
 model_manager = ModelManager() 

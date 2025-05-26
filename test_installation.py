@@ -18,7 +18,6 @@ def test_imports():
         'diffusers',
         'transformers',
         'accelerate',
-        'litserve',
         'fastapi',
         'uvicorn',
         'huggingface_hub',

@@ -72,6 +72,9 @@ def run(model_name: str, host: Optional[str], port: Optional[int]):
     except KeyboardInterrupt:
         rprint("\n[yellow]Server stopped[/yellow]")
         model_manager.unload_model()
+        # Clear the current model from settings when server stops
+        settings.current_model = None
+        settings.save_config()
 
 @cli.command()
 def list():
@@ -152,18 +155,48 @@ def rm(model_name: str):
 @cli.command()
 def ps():
     """Show currently running model"""
-    if model_manager.is_model_loaded():
-        current_model = model_manager.get_current_model()
-        engine = model_manager.loaded_model
-        info = engine.get_model_info() if engine else {}
+    current_model = model_manager.get_current_model()
+    server_running = model_manager.is_server_running()
+    
+    if current_model:
+        rprint(f"[green]Current model: {current_model}[/green]")
         
-        rprint(f"[green]Currently running model: {current_model}[/green]")
-        if info:
-            rprint(f"Device: {info.get('device', 'Unknown')}")
-            rprint(f"Type: {info.get('type', 'Unknown')}")
-            rprint(f"Variant: {info.get('variant', 'Unknown')}")
+        # Check server status
+        if server_running:
+            rprint(f"[green]Server status: Running on {settings.server.host}:{settings.server.port}[/green]")
+            
+            # Try to get model info from the running server
+            try:
+                import requests
+                response = requests.get(f"http://{settings.server.host}:{settings.server.port}/api/models/running", timeout=2)
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get('loaded'):
+                        info = data.get('info', {})
+                        rprint(f"Device: {info.get('device', 'Unknown')}")
+                        rprint(f"Type: {info.get('type', 'Unknown')}")
+                        rprint(f"Variant: {info.get('variant', 'Unknown')}")
+                    else:
+                        rprint("[yellow]Model loaded but not active in server[/yellow]")
+            except:
+                pass
+        else:
+            rprint("[yellow]Server status: Not running[/yellow]")
+            rprint("[dim]Model is set as current but server is not active[/dim]")
+            
+        # Show model info from local config
+        model_info = model_manager.get_model_info(current_model)
+        if model_info:
+            rprint(f"Model type: {model_info.get('model_type', 'Unknown')}")
+            if model_info.get('installed'):
+                rprint(f"Size: {model_info.get('size', 'Unknown')}")
     else:
-        rprint("[yellow]No model is currently running[/yellow]")
+        if server_running:
+            rprint("[yellow]Server is running but no model is loaded[/yellow]")
+            rprint(f"[green]Server status: Running on {settings.server.host}:{settings.server.port}[/green]")
+        else:
+            rprint("[yellow]No model is currently running[/yellow]")
+            rprint("[dim]Use 'ollamadiffuser run <model>' to start a model[/dim]")
 
 @cli.command()
 @click.option('--host', '-h', default=None, help='Server host address')

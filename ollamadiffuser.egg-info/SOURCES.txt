@@ -21,6 +21,8 @@ ollamadiffuser/core/inference/__init__.py
 ollamadiffuser/core/inference/engine.py
 ollamadiffuser/core/models/__init__.py
 ollamadiffuser/core/models/manager.py
+ollamadiffuser/core/utils/__init__.py
+ollamadiffuser/core/utils/download_utils.py
 ollamadiffuser/ui/__init__.py
 ollamadiffuser/ui/web.py
 ollamadiffuser/utils/__init__.py

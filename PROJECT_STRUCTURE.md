@@ -28,7 +28,7 @@ ollamadiffuser/
 │   │
 │   ├── api/                    # API 服务器
 │   │   ├── __init__.py
-│   │   └── server.py           # FastAPI/LitServe 服务器
+│   │   └── server.py           # FastAPI 服务器
 │   │
 │   ├── cli/                    # 命令行接口
 │   │   ├── __init__.py

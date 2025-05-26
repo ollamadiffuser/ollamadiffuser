@@ -1,7 +1,7 @@
-import litserve as ls
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
 import io
 import logging
 from typing import Dict, Any, Optional
@@ -25,48 +25,6 @@ class GenerateRequest(BaseModel):
 
 class LoadModelRequest(BaseModel):
     model_name: str
-
-class ImageGenerationAPI(ls.LitAPI):
-    """Image generation API"""
-    
-    def setup(self, device):
-        """Initialize API"""
-        self.device = device
-        logger.info("ImageGenerationAPI initialization completed")
-    
-    def decode_request(self, request):
-        """Parse request"""
-        return request
-    
-    def predict(self, params: GenerateRequest):
-        """Execute image generation prediction"""
-        # Check if model is loaded
-        if not model_manager.is_model_loaded():
-            raise HTTPException(status_code=400, detail="No model loaded, please load a model first")
-        
-        # Get current loaded inference engine
-        engine = model_manager.loaded_model
-        
-        # Generate image
-        image = engine.generate_image(
-            prompt=params.prompt,
-            negative_prompt=params.negative_prompt,
-            num_inference_steps=params.num_inference_steps,
-            guidance_scale=params.guidance_scale,
-            width=params.width,
-            height=params.height
-        )
-        
-        return image
-    
-    def encode_response(self, image):
-        """Encode response"""
-        # Convert PIL image to bytes
-        img_byte_arr = io.BytesIO()
-        image.save(img_byte_arr, format='PNG')
-        img_byte_arr = img_byte_arr.getvalue()
-        
-        return Response(content=img_byte_arr, media_type="image/png")
 
 def create_app() -> FastAPI:
     """Create FastAPI application"""
@@ -198,16 +156,12 @@ def run_server(host: str = None, port: int = None):
     host = host or settings.server.host
     port = port or settings.server.port
     
-    # Create LitServe API
-    api = ImageGenerationAPI()
-    server = ls.LitServer(api, accelerator="auto")
+    # Create FastAPI application
+    app = create_app()
     
-    # Register FastAPI application
-    fastapi_app = create_app()
-    
-    # Run server
+    # Run server with uvicorn
     logger.info(f"Starting server: http://{host}:{port}")
-    server.run(host=host, port=port, generate_client_file=False)
+    uvicorn.run(app, host=host, port=port, log_level="info")
 
 if __name__ == "__main__":
     run_server() 
