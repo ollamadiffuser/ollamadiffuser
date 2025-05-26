@@ -48,8 +48,8 @@ class ModelManager:
                 "model_type": "sd15",
                 "variant": "fp16",
                 "parameters": {
-                    "num_inference_steps": 50,
-                    "guidance_scale": 7.5
+                    "num_inference_steps": 20,
+                    "guidance_scale": 7.0
                 }
             }
         }

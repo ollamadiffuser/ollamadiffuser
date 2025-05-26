@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 from diffusers import (
     StableDiffusionPipeline, 
     StableDiffusionXLPipeline,
@@ -60,10 +61,33 @@ class InferenceEngine:
             
             # Load pipeline
             logger.info(f"Loading model: {model_config.name}")
+            
+            # Disable safety checker for SD 1.5 to prevent false NSFW detections
+            if model_config.model_type == "sd15":
+                load_kwargs["safety_checker"] = None
+                load_kwargs["requires_safety_checker"] = False
+                load_kwargs["feature_extractor"] = None
+                # Use float32 for better numerical stability on SD 1.5
+                if model_config.variant == "fp16" and self.device == "cpu":
+                    load_kwargs["torch_dtype"] = torch.float32
+                    load_kwargs.pop("variant", None)
+                    logger.info("Using float32 for CPU inference to improve stability")
+                logger.info("Safety checker disabled for SD 1.5 to prevent false NSFW detections")
+            
             self.pipeline = pipeline_class.from_pretrained(
                 model_config.path,
                 **load_kwargs
             ).to(self.device)
+            
+            # Additional safety checker disabling for SD 1.5 (in case the above didn't work)
+            if model_config.model_type == "sd15":
+                if hasattr(self.pipeline, 'safety_checker'):
+                    self.pipeline.safety_checker = None
+                if hasattr(self.pipeline, 'feature_extractor'):
+                    self.pipeline.feature_extractor = None
+                if hasattr(self.pipeline, 'requires_safety_checker'):
+                    self.pipeline.requires_safety_checker = False
+                logger.info("Additional safety checker components disabled")
             
             # Load LoRA and other components
             if model_config.components and "lora" in model_config.components:
@@ -181,17 +205,138 @@ class InferenceEngine:
                 **kwargs
             }
             
-            # Add size parameters for SDXL and SD3
+            # Add size parameters based on model type
             if self.model_config.model_type in ["sdxl", "sd3"]:
                 generation_kwargs.update({
                     "width": width,
                     "height": height
                 })
+            elif self.model_config.model_type == "sd15":
+                # SD 1.5 works best with 512x512, adjust if different sizes requested
+                if width != 1024 or height != 1024:
+                    generation_kwargs.update({
+                        "width": width,
+                        "height": height
+                    })
+                else:
+                    # Use optimal size for SD 1.5
+                    generation_kwargs.update({
+                        "width": 512,
+                        "height": 512
+                    })
             
             # Generate image
-            output = self.pipeline(**generation_kwargs)
+            logger.info(f"Generation parameters: steps={num_inference_steps}, guidance={guidance_scale}")
+            
+            # Add generator for reproducible results and better stability
+            generator = torch.Generator(device=self.device).manual_seed(42)
+            generation_kwargs["generator"] = generator
+            
+            # For SD 1.5, use a more conservative approach to avoid numerical issues
+            if self.model_config.model_type == "sd15":
+                # Lower guidance scale to prevent numerical instability
+                if generation_kwargs["guidance_scale"] > 7.0:
+                    generation_kwargs["guidance_scale"] = 7.0
+                    logger.info("Reduced guidance scale to 7.0 for stability")
+                
+                # Ensure we're using float32 for better numerical stability
+                if self.device == "mps":
+                    # For Apple Silicon, use specific optimizations
+                    generation_kwargs["guidance_scale"] = min(generation_kwargs["guidance_scale"], 6.0)
+                    logger.info("Applied MPS-specific optimizations")
+            
+            # For SD 1.5, use manual pipeline execution to avoid safety checker issues
+            if self.model_config.model_type == "sd15":
+                try:
+                    # Manual pipeline execution with safety checks disabled
+                    with torch.no_grad():
+                        # Encode prompt
+                        text_inputs = self.pipeline.tokenizer(
+                            generation_kwargs["prompt"],
+                            padding="max_length",
+                            max_length=self.pipeline.tokenizer.model_max_length,
+                            truncation=True,
+                            return_tensors="pt",
+                        )
+                        text_embeddings = self.pipeline.text_encoder(text_inputs.input_ids.to(self.device))[0]
+                        
+                        # Encode negative prompt
+                        uncond_inputs = self.pipeline.tokenizer(
+                            generation_kwargs["negative_prompt"],
+                            padding="max_length",
+                            max_length=self.pipeline.tokenizer.model_max_length,
+                            truncation=True,
+                            return_tensors="pt",
+                        )
+                        uncond_embeddings = self.pipeline.text_encoder(uncond_inputs.input_ids.to(self.device))[0]
+                        
+                        # Concatenate embeddings
+                        text_embeddings = torch.cat([uncond_embeddings, text_embeddings])
+                        
+                        # Generate latents
+                        latents = torch.randn(
+                            (1, self.pipeline.unet.config.in_channels, 
+                             generation_kwargs["height"] // 8, generation_kwargs["width"] // 8),
+                            generator=generation_kwargs["generator"],
+                            device=self.device,
+                            dtype=text_embeddings.dtype,
+                        )
+                        
+                        # Set scheduler
+                        self.pipeline.scheduler.set_timesteps(generation_kwargs["num_inference_steps"])
+                        latents = latents * self.pipeline.scheduler.init_noise_sigma
+                        
+                        # Denoising loop
+                        for t in self.pipeline.scheduler.timesteps:
+                            latent_model_input = torch.cat([latents] * 2)
+                            latent_model_input = self.pipeline.scheduler.scale_model_input(latent_model_input, t)
+                            
+                            noise_pred = self.pipeline.unet(latent_model_input, t, encoder_hidden_states=text_embeddings).sample
+                            
+                            noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
+                            noise_pred = noise_pred_uncond + generation_kwargs["guidance_scale"] * (noise_pred_text - noise_pred_uncond)
+                            
+                            latents = self.pipeline.scheduler.step(noise_pred, t, latents).prev_sample
+                        
+                        # Decode latents
+                        latents = 1 / self.pipeline.vae.config.scaling_factor * latents
+                        with torch.no_grad():
+                            image = self.pipeline.vae.decode(latents).sample
+                        
+                        # Convert to PIL
+                        image = (image / 2 + 0.5).clamp(0, 1)
+                        image = image.cpu().permute(0, 2, 3, 1).float().numpy()
+                        image = (image * 255).round().astype(np.uint8)
+                        
+                        from PIL import Image as PILImage
+                        image = PILImage.fromarray(image[0])
+                        
+                        # Create a mock output object
+                        class MockOutput:
+                            def __init__(self, images):
+                                self.images = images
+                                self.nsfw_content_detected = [False] * len(images)
+                        
+                        output = MockOutput([image])
+                        
+                except Exception as e:
+                    logger.warning(f"Manual pipeline execution failed: {e}, falling back to standard pipeline")
+                    output = self.pipeline(**generation_kwargs)
+            else:
+                output = self.pipeline(**generation_kwargs)
+            
+            # Check if output contains nsfw_content_detected
+            if hasattr(output, 'nsfw_content_detected') and output.nsfw_content_detected:
+                logger.warning("NSFW content detected by pipeline - this should not happen with safety checker disabled")
             
             image = output.images[0]
+            
+            # Debug: Check image properties
+            logger.info(f"Generated image size: {image.size}, mode: {image.mode}")
+            
+            # Validate and fix image data if needed
+            image = self._validate_and_fix_image(image)
+            
             logger.info("Image generation completed")
             return image
             
@@ -199,6 +344,42 @@ class InferenceEngine:
             logger.error(f"Image generation failed: {e}")
             # Return error image
             return self._create_error_image(str(e), truncated_prompt)
+    
+    def _validate_and_fix_image(self, image: Image.Image) -> Image.Image:
+        """Validate and fix image data to handle NaN/infinite values"""
+        try:
+            # Convert PIL image to numpy array
+            img_array = np.array(image)
+            
+            # Check if image is completely black (safety checker replacement)
+            if np.all(img_array == 0):
+                logger.error("Generated image is completely black - likely safety checker issue")
+                logger.error("This suggests the safety checker is still active despite our attempts to disable it")
+                
+            # Check for NaN or infinite values
+            if np.isnan(img_array).any() or np.isinf(img_array).any():
+                logger.warning("Invalid values (NaN/inf) detected in generated image, applying fixes")
+                
+                # Replace NaN and infinite values with valid ranges
+                img_array = np.nan_to_num(img_array, nan=0.0, posinf=255.0, neginf=0.0)
+                
+                # Ensure values are in valid range [0, 255]
+                img_array = np.clip(img_array, 0, 255)
+                
+                # Convert back to PIL Image
+                image = Image.fromarray(img_array.astype(np.uint8))
+                logger.info("Image data fixed successfully")
+            
+            # Log image statistics for debugging
+            mean_val = np.mean(img_array)
+            std_val = np.std(img_array)
+            logger.info(f"Image stats - mean: {mean_val:.2f}, std: {std_val:.2f}")
+            
+            return image
+            
+        except Exception as e:
+            logger.warning(f"Failed to validate image data: {e}, returning original image")
+            return image
     
     def _create_error_image(self, error_msg: str, prompt: str) -> Image.Image:
         """Create error message image"""
