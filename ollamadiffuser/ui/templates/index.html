@@ -294,6 +294,18 @@
             <div class="status-item">
                 <span>已安装模型: {{ installed_models|length }}</span>
             </div>
+            <div class="status-item">
+                <div class="status-indicator {{ 'status-loaded' if current_lora else 'status-unloaded' }}"></div>
+                <span>LoRA状态: {{ '已加载' if current_lora else '未加载' }}</span>
+            </div>
+            {% if current_lora %}
+            <div class="status-item">
+                <span>当前LoRA: <strong>{{ current_lora }}</strong></span>
+            </div>
+            {% endif %}
+            <div class="status-item">
+                <span>已安装LoRA: {{ installed_loras|length }}</span>
+            </div>
         </div>
         
         <div class="model-management">
@@ -322,6 +334,71 @@
             <div class="model-info">
                 <strong>📥 没有已安装的模型</strong><br>
                 请使用CLI安装模型: <code>ollamadiffuser pull model-name</code>
+            </div>
+            {% endif %}
+        </div>
+        
+        <div class="model-management">
+            <h3>🔄 LoRA 管理</h3>
+            
+            <!-- Download LoRA Section -->
+            <form method="post" action="/pull_lora" style="margin-bottom: 15px;">
+                <div style="display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 10px; align-items: end;">
+                    <div>
+                        <label for="repo_id" style="display: block; margin-bottom: 5px; font-size: 12px; color: #6b7280;">Hugging Face Repository ID</label>
+                        <input type="text" name="repo_id" id="repo_id" placeholder="例如: openfree/flux-chatgpt-ghibli-lora" required style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: white; font-size: 14px;">
+                    </div>
+                    <div>
+                        <label for="weight_name" style="display: block; margin-bottom: 5px; font-size: 12px; color: #6b7280;">权重文件名 (可选)</label>
+                        <input type="text" name="weight_name" id="weight_name" placeholder="例如: lora.safetensors" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: white; font-size: 14px;">
+                    </div>
+                    <div>
+                        <label for="alias" style="display: block; margin-bottom: 5px; font-size: 12px; color: #6b7280;">别名 (可选)</label>
+                        <input type="text" name="alias" id="alias" placeholder="例如: ghibli" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: white; font-size: 14px;">
+                    </div>
+                    <button type="submit" class="btn-small">📥 下载LoRA</button>
+                </div>
+            </form>
+            
+            <!-- Load LoRA Section -->
+            {% if installed_loras %}
+            <form method="post" action="/load_lora" style="margin-bottom: 15px;">
+                <div class="model-controls">
+                    <select name="lora_name" required style="flex: 2;">
+                        <option value="">选择要加载的LoRA...</option>
+                        {% for lora_name, lora_info in installed_loras.items() %}
+                        <option value="{{ lora_name }}" {{ 'selected' if lora_name == current_lora else '' }}>
+                            {{ lora_name }} ({{ lora_info.get('repo_id', 'Unknown') }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <div style="display: flex; flex-direction: column; min-width: 100px;">
+                        <label for="scale" style="font-size: 12px; color: #6b7280; margin-bottom: 2px;">强度</label>
+                        <input type="number" name="scale" id="scale" value="1.0" min="0.1" max="2.0" step="0.1" style="padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: white; font-size: 14px;">
+                    </div>
+                    <button type="submit" class="btn-small" {{ 'disabled' if not model_loaded }}>🚀 加载LoRA</button>
+                </div>
+            </form>
+            {% endif %}
+            
+            <!-- Unload LoRA Section -->
+            {% if current_lora %}
+            <form method="post" action="/unload_lora">
+                <button type="submit" class="btn-small btn-danger">🔄 卸载当前LoRA</button>
+            </form>
+            {% endif %}
+            
+            <!-- LoRA Status -->
+            {% if not installed_loras %}
+            <div class="model-info">
+                <strong>📥 没有已安装的LoRA</strong><br>
+                请在上方输入Hugging Face仓库ID下载LoRA，或使用CLI: <code>ollamadiffuser lora pull repo-id</code>
+            </div>
+            {% endif %}
+            
+            {% if installed_loras and not model_loaded %}
+            <div class="model-info">
+                <strong>⚠️ 注意:</strong> 需要先加载模型才能使用LoRA
             </div>
             {% endif %}
         </div>

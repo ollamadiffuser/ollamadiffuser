@@ -7,6 +7,7 @@ import base64
 from pathlib import Path
 
 from ..core.models.manager import model_manager
+from ..core.utils.lora_manager import lora_manager
 
 # Get templates directory
 templates_dir = Path(__file__).parent / "templates"
@@ -24,6 +25,10 @@ def create_ui_app() -> FastAPI:
         current_model = model_manager.get_current_model()
         model_loaded = model_manager.is_model_loaded()
         
+        # Get LoRA information
+        installed_loras = lora_manager.list_installed_loras()
+        current_lora = lora_manager.get_current_lora()
+        
         # Don't auto-load model on startup - let user choose
         
         return templates.TemplateResponse("index.html", {
@@ -31,7 +36,9 @@ def create_ui_app() -> FastAPI:
             "models": models,
             "installed_models": installed_models,
             "current_model": current_model,
-            "model_loaded": model_loaded
+            "model_loaded": model_loaded,
+            "installed_loras": installed_loras,
+            "current_lora": current_lora
         })
     
     @app.post("/generate")
@@ -83,6 +90,8 @@ def create_ui_app() -> FastAPI:
         models = model_manager.list_available_models()
         installed_models = model_manager.list_installed_models()
         current_model = model_manager.get_current_model()
+        installed_loras = lora_manager.list_installed_loras()
+        current_lora = lora_manager.get_current_lora()
         
         return templates.TemplateResponse("index.html", {
             "request": request,
@@ -90,6 +99,8 @@ def create_ui_app() -> FastAPI:
             "installed_models": installed_models,
             "current_model": current_model,
             "model_loaded": model_manager.is_model_loaded(),
+            "installed_loras": installed_loras,
+            "current_lora": current_lora,
             "prompt": prompt,
             "negative_prompt": negative_prompt,
             "num_inference_steps": num_inference_steps,
@@ -118,6 +129,8 @@ def create_ui_app() -> FastAPI:
         models = model_manager.list_available_models()
         installed_models = model_manager.list_installed_models()
         current_model = model_manager.get_current_model()
+        installed_loras = lora_manager.list_installed_loras()
+        current_lora = lora_manager.get_current_lora()
         
         return templates.TemplateResponse("index.html", {
             "request": request,
@@ -125,6 +138,8 @@ def create_ui_app() -> FastAPI:
             "installed_models": installed_models,
             "current_model": current_model,
             "model_loaded": model_manager.is_model_loaded(),
+            "installed_loras": installed_loras,
+            "current_lora": current_lora,
             "success_message": f"Model {model_name} loaded successfully!" if success else None,
             "error_message": error_message
         })
@@ -144,6 +159,8 @@ def create_ui_app() -> FastAPI:
         models = model_manager.list_available_models()
         installed_models = model_manager.list_installed_models()
         current_model = model_manager.get_current_model()
+        installed_loras = lora_manager.list_installed_loras()
+        current_lora = lora_manager.get_current_lora()
         
         return templates.TemplateResponse("index.html", {
             "request": request,
@@ -151,8 +168,111 @@ def create_ui_app() -> FastAPI:
             "installed_models": installed_models,
             "current_model": current_model,
             "model_loaded": model_manager.is_model_loaded(),
+            "installed_loras": installed_loras,
+            "current_lora": current_lora,
             "success_message": success_message,
             "error_message": error_message if 'error_message' in locals() else None
         })
     
+    @app.post("/load_lora")
+    async def load_lora_ui(request: Request, lora_name: str = Form(...), scale: float = Form(1.0)):
+        """Load LoRA (Web UI)"""
+        success = False
+        error_message = None
+        
+        try:
+            if lora_manager.load_lora(lora_name, scale=scale):
+                success = True
+            else:
+                error_message = f"Failed to load LoRA {lora_name}"
+        except Exception as e:
+            error_message = f"Error loading LoRA: {str(e)}"
+        
+        # Redirect back to home page
+        models = model_manager.list_available_models()
+        installed_models = model_manager.list_installed_models()
+        current_model = model_manager.get_current_model()
+        installed_loras = lora_manager.list_installed_loras()
+        current_lora = lora_manager.get_current_lora()
+        
+        return templates.TemplateResponse("index.html", {
+            "request": request,
+            "models": models,
+            "installed_models": installed_models,
+            "current_model": current_model,
+            "model_loaded": model_manager.is_model_loaded(),
+            "installed_loras": installed_loras,
+            "current_lora": current_lora,
+            "success_message": f"LoRA {lora_name} loaded successfully with scale {scale}!" if success else None,
+            "error_message": error_message
+        })
+    
+    @app.post("/unload_lora")
+    async def unload_lora_ui(request: Request):
+        """Unload current LoRA (Web UI)"""
+        try:
+            current_lora_name = lora_manager.get_current_lora()
+            lora_manager.unload_lora()
+            success_message = f"LoRA {current_lora_name} unloaded successfully!" if current_lora_name else "LoRA unloaded!"
+        except Exception as e:
+            success_message = None
+            error_message = f"Error unloading LoRA: {str(e)}"
+        
+        # Redirect back to home page
+        models = model_manager.list_available_models()
+        installed_models = model_manager.list_installed_models()
+        current_model = model_manager.get_current_model()
+        installed_loras = lora_manager.list_installed_loras()
+        current_lora = lora_manager.get_current_lora()
+        
+        return templates.TemplateResponse("index.html", {
+            "request": request,
+            "models": models,
+            "installed_models": installed_models,
+            "current_model": current_model,
+            "model_loaded": model_manager.is_model_loaded(),
+            "installed_loras": installed_loras,
+            "current_lora": current_lora,
+            "success_message": success_message,
+            "error_message": error_message if 'error_message' in locals() else None
+        })
+    
+    @app.post("/pull_lora")
+    async def pull_lora_ui(request: Request, repo_id: str = Form(...), weight_name: str = Form(""), alias: str = Form("")):
+        """Pull LoRA from Hugging Face Hub (Web UI)"""
+        success = False
+        error_message = None
+        
+        try:
+            # Use alias if provided, otherwise use repo_id
+            lora_alias = alias if alias.strip() else None
+            weight_file = weight_name if weight_name.strip() else None
+            
+            if lora_manager.pull_lora(repo_id, weight_name=weight_file, alias=lora_alias):
+                success = True
+                final_name = lora_alias if lora_alias else repo_id.replace('/', '_')
+            else:
+                error_message = f"Failed to download LoRA {repo_id}"
+        except Exception as e:
+            error_message = f"Error downloading LoRA: {str(e)}"
+        
+        # Redirect back to home page
+        models = model_manager.list_available_models()
+        installed_models = model_manager.list_installed_models()
+        current_model = model_manager.get_current_model()
+        installed_loras = lora_manager.list_installed_loras()
+        current_lora = lora_manager.get_current_lora()
+        
+        return templates.TemplateResponse("index.html", {
+            "request": request,
+            "models": models,
+            "installed_models": installed_models,
+            "current_model": current_model,
+            "model_loaded": model_manager.is_model_loaded(),
+            "installed_loras": installed_loras,
+            "current_lora": current_lora,
+            "success_message": f"LoRA {final_name if success else repo_id} downloaded successfully!" if success else None,
+            "error_message": error_message
+        })
+
     return app 

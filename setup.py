@@ -51,7 +51,7 @@ setup(
     },
     entry_points={
         "console_scripts": [
-            "ollamadiffuser=ollamadiffuser.cli.main:cli",
+            "ollamadiffuser=ollamadiffuser.__main__:main",
         ],
     },
     include_package_data=True,
