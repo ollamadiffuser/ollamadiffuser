@@ -23,6 +23,7 @@ class InferenceEngine:
         self.device = None
         self.tokenizer = None
         self.max_token_limit = 77
+        self.current_lora = None  # Track current LoRA state
         
     def _get_device(self) -> str:
         """Automatically detect available device"""
@@ -618,6 +619,14 @@ class InferenceEngine:
                 self.pipeline.set_adapters(["default"], adapter_weights=[scale])
                 logger.info(f"Set LoRA scale to {scale}")
             
+            # Track LoRA state
+            self.current_lora = {
+                "repo_id": repo_id,
+                "weight_name": weight_name,
+                "scale": scale,
+                "loaded": True
+            }
+            
             logger.info("LoRA weights loaded successfully at runtime")
             return True
             
@@ -633,6 +642,8 @@ class InferenceEngine:
         try:
             if hasattr(self.pipeline, 'unload_lora_weights'):
                 self.pipeline.unload_lora_weights()
+                # Clear LoRA state
+                self.current_lora = None
                 logger.info("LoRA weights unloaded successfully")
                 return True
             else:

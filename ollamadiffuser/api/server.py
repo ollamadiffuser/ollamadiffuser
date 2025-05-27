@@ -162,6 +162,36 @@ def create_app() -> FastAPI:
             logger.error(f"LoRA unloading failed: {e}")
             raise HTTPException(status_code=500, detail=f"LoRA unloading failed: {str(e)}")
     
+    @app.get("/api/lora/status")
+    async def get_lora_status():
+        """Get current LoRA status"""
+        # Check if model is loaded
+        if not model_manager.is_model_loaded():
+            return {"loaded": False, "message": "No model loaded"}
+        
+        try:
+            # Get current loaded inference engine
+            engine = model_manager.loaded_model
+            
+            # Check tracked LoRA state
+            if hasattr(engine, 'current_lora') and engine.current_lora:
+                lora_info = engine.current_lora.copy()
+                return {
+                    "loaded": True,
+                    "info": lora_info,
+                    "message": "LoRA loaded"
+                }
+            else:
+                return {
+                    "loaded": False,
+                    "info": None,
+                    "message": "No LoRA loaded"
+                }
+                
+        except Exception as e:
+            logger.error(f"Failed to get LoRA status: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to get LoRA status: {str(e)}")
+    
     # Image generation endpoints
     @app.post("/api/generate")
     async def generate_image(request: GenerateRequest):

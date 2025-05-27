@@ -416,6 +416,91 @@ def rm(lora_name: str):
         sys.exit(1)
 
 @lora.command()
+def ps():
+    """Show currently loaded LoRA status"""
+    from ..core.utils.lora_manager import lora_manager
+    
+    # Check if server is running
+    server_running = lora_manager._is_server_running()
+    current_lora = lora_manager.get_current_lora()
+    
+    if server_running:
+        rprint(f"[green]Server status: Running on {settings.server.host}:{settings.server.port}[/green]")
+        
+        # Try to get LoRA status from the running server
+        try:
+            import requests
+            response = requests.get(f"http://{settings.server.host}:{settings.server.port}/api/models/running", timeout=2)
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('loaded'):
+                    model_info = data.get('info', {})
+                    rprint(f"Model: {data.get('model', 'Unknown')}")
+                    rprint(f"Device: {model_info.get('device', 'Unknown')}")
+                    rprint(f"Type: {model_info.get('type', 'Unknown')}")
+                else:
+                    rprint("[yellow]No model loaded in server[/yellow]")
+                    return
+        except Exception as e:
+            rprint(f"[red]Failed to get server status: {e}[/red]")
+            return
+    else:
+        # Check local model manager
+        if model_manager.is_model_loaded():
+            current_model = model_manager.get_current_model()
+            rprint(f"[green]Model loaded locally: {current_model}[/green]")
+        else:
+            rprint("[yellow]No server running and no local model loaded[/yellow]")
+            rprint("[dim]Use 'ollamadiffuser run <model>' to start a model[/dim]")
+            return
+    
+    # Show LoRA status
+    lora_status_shown = False
+    lora_loaded_on_server = False
+    
+    # Try to get LoRA status from server if running
+    if server_running:
+        try:
+            import requests
+            response = requests.get(f"http://{settings.server.host}:{settings.server.port}/api/lora/status", timeout=2)
+            if response.status_code == 200:
+                lora_data = response.json()
+                if lora_data.get('loaded'):
+                    lora_info = lora_data.get('info', {})
+                    rprint(f"\n[bold green]🔄 LoRA Status: LOADED (via server)[/bold green]")
+                    rprint(f"Adapter: {lora_info.get('adapter_name', 'Unknown')}")
+                    if 'scale' in lora_info:
+                        rprint(f"Scale: {lora_info.get('scale', 'Unknown')}")
+                    if 'adapters' in lora_info:
+                        rprint(f"Active Adapters: {', '.join(lora_info.get('adapters', []))}")
+                    lora_status_shown = True
+                    lora_loaded_on_server = True
+                else:
+                    rprint(f"\n[dim]💾 LoRA Status: No LoRA loaded (server)[/dim]")
+                    lora_status_shown = True
+        except Exception as e:
+            rprint(f"\n[yellow]⚠️ Failed to get LoRA status from server: {e}[/yellow]")
+    
+    # Fallback to local LoRA manager state
+    if not lora_status_shown:
+        if current_lora:
+            lora_info = lora_manager.get_lora_info(current_lora)
+            if lora_info:
+                rprint(f"\n[bold green]🔄 LoRA Status: LOADED (local)[/bold green]")
+                rprint(f"Name: {current_lora}")
+                rprint(f"Repository: {lora_info.get('repo_id', 'Unknown')}")
+                rprint(f"Weight File: {lora_info.get('weight_name', 'Unknown')}")
+                rprint(f"Size: {lora_info.get('size', 'Unknown')}")
+                rprint(f"Local Path: {lora_info.get('path', 'Unknown')}")
+            else:
+                rprint(f"\n[yellow]⚠️ LoRA {current_lora} is set as current but info not found[/yellow]")
+        else:
+            rprint(f"\n[dim]💾 LoRA Status: No LoRA loaded[/dim]")
+    
+    if not lora_loaded_on_server:
+        rprint("[dim]Use 'ollamadiffuser lora load <lora_name>' to load a LoRA[/dim]")
+
+@lora.command()
 def list():
     """List available and installed LoRA weights"""
     from ..core.utils.lora_manager import lora_manager
