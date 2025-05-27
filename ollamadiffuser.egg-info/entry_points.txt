@@ -1,2 +1,0 @@
-[console_scripts]
-ollamadiffuser = ollamadiffuser.__main__:main

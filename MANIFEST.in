@@ -1,0 +1,8 @@
+include README.md
+include LICENSE
+include CHANGELOG.md
+include requirements.txt
+recursive-include ollamadiffuser/ui/templates *.html
+recursive-include ollamadiffuser/ui/static *
+recursive-exclude * __pycache__
+recursive-exclude * *.py[co] 

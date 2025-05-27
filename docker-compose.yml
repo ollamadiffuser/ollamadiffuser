@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  ollamadiffuser:
+    build: .
+    ports:
+      - "8001:8001"  # Web UI
+      - "8000:8000"  # API
+    volumes:
+      - ./models:/app/models
+      - ./outputs:/app/outputs
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+
+  # Optional: Add nginx for production
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - ollamadiffuser
+    restart: unless-stopped
+    profiles:
+      - production 

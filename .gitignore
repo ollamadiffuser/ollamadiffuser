@@ -89,3 +89,7 @@ htmlcov/
 *.temp
 temp/
 tmp/
+
+# Publishing artifacts (build outputs only)
+*.tar.gz
+*.whl
