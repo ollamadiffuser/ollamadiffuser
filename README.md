@@ -73,6 +73,7 @@ python -m ollamadiffuser --mode ui
 - **Stable Diffusion 1.5** - 经典的图像生成模型
 - **Stable Diffusion XL** - 更高质量的大模型
 - **Stable Diffusion 3/3.5** - 最新的SD3系列模型
+- **FLUX.1-dev** - Black Forest Labs的12B参数高质量模型
 
 ### 组件支持
 - **LoRA** - 低秩适应器，用于风格微调
@@ -204,6 +205,15 @@ POST /api/shutdown                  # 优雅关闭服务器
 - 磁盘空间: 10GB
 - 性能说明: 在NVIDIA RTX 3080+或Apple M2 Pro+上表现最佳
 
+**FLUX.1-dev**
+- 最低 VRAM: 12GB
+- 推荐 VRAM: 16GB
+- 最低 RAM: 24GB
+- 推荐 RAM: 32GB
+- 磁盘空间: 15GB
+- 性能说明: 需要NVIDIA RTX 4070+或Apple M2 Pro+，需要HuggingFace Token
+- 许可证: 非商业许可证，需要同意使用条款
+
 #### 支持的设备
 - **NVIDIA GPU**: CUDA 支持（推荐）
 - **Apple Silicon**: M1/M2 Mac（通过MPS加速）
@@ -283,9 +293,9 @@ flake8 ollamadiffuser/
 
 ## 🛣️ 路线图
 
-### v1.1 (计划中)
+### v1.1 (已完成)
+- [x] FLUX.1-dev 支持
 - [ ] ControlNet 支持
-- [ ] 更多模型架构支持（FLUX.1等）
 - [ ] 批量生成功能
 - [ ] 图像到图像生成
 

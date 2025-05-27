@@ -26,6 +26,12 @@ class GenerateRequest(BaseModel):
 class LoadModelRequest(BaseModel):
     model_name: str
 
+class LoadLoRARequest(BaseModel):
+    lora_name: str
+    repo_id: str
+    weight_name: Optional[str] = None
+    scale: float = 1.0
+
 def create_app() -> FastAPI:
     """Create FastAPI application"""
     app = FastAPI(
@@ -104,6 +110,57 @@ def create_app() -> FastAPI:
             return {"message": f"Model {model_name} removed successfully"}
         else:
             raise HTTPException(status_code=400, detail=f"Failed to remove model {model_name}")
+    
+    # LoRA management endpoints
+    @app.post("/api/lora/load")
+    async def load_lora(request: LoadLoRARequest):
+        """Load LoRA weights into current model"""
+        # Check if model is loaded
+        if not model_manager.is_model_loaded():
+            raise HTTPException(status_code=400, detail="No model loaded, please load a model first")
+        
+        try:
+            # Get current loaded inference engine
+            engine = model_manager.loaded_model
+            
+            # Load LoRA weights
+            success = engine.load_lora_runtime(
+                repo_id=request.repo_id,
+                weight_name=request.weight_name,
+                scale=request.scale
+            )
+            
+            if success:
+                return {"message": f"LoRA {request.lora_name} loaded successfully with scale {request.scale}"}
+            else:
+                raise HTTPException(status_code=400, detail=f"Failed to load LoRA {request.lora_name}")
+                
+        except Exception as e:
+            logger.error(f"LoRA loading failed: {e}")
+            raise HTTPException(status_code=500, detail=f"LoRA loading failed: {str(e)}")
+    
+    @app.post("/api/lora/unload")
+    async def unload_lora():
+        """Unload current LoRA weights"""
+        # Check if model is loaded
+        if not model_manager.is_model_loaded():
+            raise HTTPException(status_code=400, detail="No model loaded")
+        
+        try:
+            # Get current loaded inference engine
+            engine = model_manager.loaded_model
+            
+            # Unload LoRA weights
+            success = engine.unload_lora()
+            
+            if success:
+                return {"message": "LoRA weights unloaded successfully"}
+            else:
+                raise HTTPException(status_code=400, detail="Failed to unload LoRA weights")
+                
+        except Exception as e:
+            logger.error(f"LoRA unloading failed: {e}")
+            raise HTTPException(status_code=500, detail=f"LoRA unloading failed: {str(e)}")
     
     # Image generation endpoints
     @app.post("/api/generate")

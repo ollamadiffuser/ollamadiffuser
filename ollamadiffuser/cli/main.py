@@ -339,6 +339,132 @@ def stop():
     except Exception as e:
         rprint(f"[red]Failed to stop server: {e}[/red]")
 
+@cli.group()
+def lora():
+    """LoRA (Low-Rank Adaptation) management commands"""
+    pass
+
+@lora.command()
+@click.argument('repo_id')
+@click.option('--weight-name', '-w', help='Specific weight file name (e.g., lora.safetensors)')
+@click.option('--alias', '-a', help='Local alias name for the LoRA')
+def pull(repo_id: str, weight_name: Optional[str], alias: Optional[str]):
+    """Download LoRA weights from Hugging Face Hub"""
+    from ..core.utils.lora_manager import lora_manager
+    
+    rprint(f"[blue]Downloading LoRA: {repo_id}[/blue]")
+    
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        console=console
+    ) as progress:
+        task = progress.add_task(f"Downloading LoRA...", total=None)
+        
+        def progress_callback(message: str):
+            progress.update(task, description=message)
+        
+        if lora_manager.pull_lora(repo_id, weight_name=weight_name, alias=alias, progress_callback=progress_callback):
+            progress.update(task, description=f"✅ LoRA download completed")
+            rprint(f"[green]LoRA {repo_id} downloaded successfully![/green]")
+        else:
+            progress.update(task, description=f"❌ LoRA download failed")
+            rprint(f"[red]LoRA {repo_id} download failed![/red]")
+            sys.exit(1)
+
+@lora.command()
+@click.argument('lora_name')
+@click.option('--scale', '-s', default=1.0, type=float, help='LoRA scale/strength (default: 1.0)')
+def load(lora_name: str, scale: float):
+    """Load LoRA weights into the current model"""
+    from ..core.utils.lora_manager import lora_manager
+    
+    rprint(f"[blue]Loading LoRA: {lora_name} (scale: {scale})[/blue]")
+    
+    if lora_manager.load_lora(lora_name, scale=scale):
+        rprint(f"[green]LoRA {lora_name} loaded successfully![/green]")
+    else:
+        rprint(f"[red]Failed to load LoRA {lora_name}![/red]")
+        sys.exit(1)
+
+@lora.command()
+def unload():
+    """Unload current LoRA weights"""
+    from ..core.utils.lora_manager import lora_manager
+    
+    rprint("[blue]Unloading LoRA weights...[/blue]")
+    
+    if lora_manager.unload_lora():
+        rprint("[green]LoRA weights unloaded successfully![/green]")
+    else:
+        rprint("[red]Failed to unload LoRA weights![/red]")
+        sys.exit(1)
+
+@lora.command()
+@click.argument('lora_name')
+@click.confirmation_option(prompt='Are you sure you want to delete this LoRA?')
+def rm(lora_name: str):
+    """Remove LoRA weights"""
+    from ..core.utils.lora_manager import lora_manager
+    
+    rprint(f"[blue]Removing LoRA: {lora_name}[/blue]")
+    
+    if lora_manager.remove_lora(lora_name):
+        rprint(f"[green]LoRA {lora_name} removed successfully![/green]")
+    else:
+        rprint(f"[red]Failed to remove LoRA {lora_name}![/red]")
+        sys.exit(1)
+
+@lora.command()
+def list():
+    """List available and installed LoRA weights"""
+    from ..core.utils.lora_manager import lora_manager
+    
+    installed_loras = lora_manager.list_installed_loras()
+    current_lora = lora_manager.get_current_lora()
+    
+    if not installed_loras:
+        rprint("[yellow]No LoRA weights installed.[/yellow]")
+        rprint("\n[dim]💡 Use 'ollamadiffuser lora pull <repo_id>' to download LoRA weights[/dim]")
+        return
+    
+    table = Table(title="Installed LoRA Weights")
+    table.add_column("Name", style="cyan", no_wrap=True)
+    table.add_column("Repository", style="blue")
+    table.add_column("Status", style="green")
+    table.add_column("Size", style="yellow")
+    
+    for lora_name, lora_info in installed_loras.items():
+        status = "🔄 Loaded" if lora_name == current_lora else "💾 Available"
+        size = lora_info.get('size', 'Unknown')
+        repo_id = lora_info.get('repo_id', 'Unknown')
+        
+        table.add_row(lora_name, repo_id, status, size)
+    
+    console.print(table)
+
+@lora.command()
+@click.argument('lora_name')
+def show(lora_name: str):
+    """Show detailed LoRA information"""
+    from ..core.utils.lora_manager import lora_manager
+    
+    lora_info = lora_manager.get_lora_info(lora_name)
+    
+    if not lora_info:
+        rprint(f"[red]LoRA {lora_name} not found.[/red]")
+        sys.exit(1)
+    
+    rprint(f"[bold cyan]LoRA Information: {lora_name}[/bold cyan]")
+    rprint(f"Repository: {lora_info.get('repo_id', 'Unknown')}")
+    rprint(f"Weight File: {lora_info.get('weight_name', 'Unknown')}")
+    rprint(f"Local Path: {lora_info.get('path', 'Unknown')}")
+    rprint(f"Size: {lora_info.get('size', 'Unknown')}")
+    rprint(f"Downloaded: {lora_info.get('downloaded_at', 'Unknown')}")
+    
+    if lora_info.get('description'):
+        rprint(f"Description: {lora_info.get('description')}")
+
 @cli.command()
 def version():
     """Show version information"""

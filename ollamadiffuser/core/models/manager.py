@@ -19,16 +19,35 @@ class ModelManager:
         
         # Predefined model registry
         self.model_registry = {
+            "flux.1-dev": {
+                "repo_id": "black-forest-labs/FLUX.1-dev",
+                "model_type": "flux",
+                "variant": "bf16",
+                "parameters": {
+                    "num_inference_steps": 50,
+                    "guidance_scale": 3.5,
+                    "max_sequence_length": 512
+                },
+                "hardware_requirements": {
+                    "min_vram_gb": 12,
+                    "recommended_vram_gb": 16,
+                    "min_ram_gb": 24,
+                    "recommended_ram_gb": 32,
+                    "disk_space_gb": 15,
+                    "supported_devices": ["CUDA", "MPS"],
+                    "performance_notes": "Requires NVIDIA RTX 4070+ or Apple M2 Pro+. Needs HuggingFace token. Use 'lora pull' to add LoRA styles."
+                },
+                "license_info": {
+                    "type": "FLUX.1-dev Non-Commercial License",
+                    "requires_agreement": True,
+                    "commercial_use": False
+                }
+            },
+
             "stable-diffusion-3.5-medium": {
                 "repo_id": "stabilityai/stable-diffusion-3.5-medium",
                 "model_type": "sd3",
                 "variant": "fp16",
-                "components": {
-                    "lora": {
-                        "repo_id": "tensorart/stable-diffusion-3.5-medium-turbo",
-                        "filename": "lora_sd3.5m_turbo_8steps.safetensors"
-                    }
-                },
                 "parameters": {
                     "num_inference_steps": 28,
                     "guidance_scale": 3.5
@@ -124,38 +143,73 @@ class ModelManager:
             return "Unknown"
     
     def pull_model(self, model_name: str, force: bool = False, progress_callback=None) -> bool:
-        """Download model using robust download utilities"""
+        """Download model using robust download utilities with detailed progress tracking"""
         if not force and self.is_model_installed(model_name):
             logger.info(f"Model {model_name} already exists")
             if progress_callback:
-                progress_callback(f"Model {model_name} already installed")
+                progress_callback(f"✅ Model {model_name} already installed")
             return True
         
         if model_name not in self.model_registry:
             logger.error(f"Unknown model: {model_name}")
             if progress_callback:
-                progress_callback(f"Error: Unknown model {model_name}")
+                progress_callback(f"❌ Error: Unknown model {model_name}")
             return False
         
         model_info = self.model_registry[model_name]
         model_path = settings.get_model_path(model_name)
         
+        # Check if partial download exists and is valid
+        if not force and model_path.exists():
+            if progress_callback:
+                progress_callback(f"🔍 Checking existing download...")
+            
+            from ..utils.download_utils import check_download_integrity
+            if check_download_integrity(str(model_path), model_info["repo_id"]):
+                if progress_callback:
+                    progress_callback(f"✅ Found complete download, adding to configuration...")
+                
+                # Add to configuration
+                model_config = ModelConfig(
+                    name=model_name,
+                    path=str(model_path),
+                    model_type=model_info["model_type"],
+                    variant=model_info.get("variant"),
+                    components=model_info.get("components"),
+                    parameters=model_info.get("parameters")
+                )
+                
+                settings.add_model(model_config)
+                logger.info(f"Model {model_name} configuration updated")
+                if progress_callback:
+                    progress_callback(f"✅ {model_name} ready to use!")
+                return True
+            else:
+                if progress_callback:
+                    progress_callback(f"⚠️ Incomplete download detected, will resume...")
+        
         try:
             # Ensure HuggingFace token is set
             if settings.hf_token:
                 login(token=settings.hf_token)
+                if progress_callback:
+                    progress_callback(f"🔑 Authenticated with HuggingFace")
+            else:
+                if progress_callback:
+                    progress_callback(f"⚠️ No HuggingFace token found - some models may not be accessible")
             
             logger.info(f"Downloading model: {model_name}")
             if progress_callback:
-                progress_callback(f"Starting download of {model_name}")
+                progress_callback(f"🚀 Starting download of {model_name}")
             
-            # Download main model using robust downloader
+            # Download main model using robust downloader with enhanced progress
+            from ..utils.download_utils import robust_snapshot_download
             robust_snapshot_download(
                 repo_id=model_info["repo_id"],
                 local_dir=str(model_path),
                 cache_dir=str(settings.cache_dir),
-                max_retries=3,
-                initial_workers=2,
+                max_retries=5,  # Increased retries for large models
+                initial_workers=4,  # More workers for faster download
                 force_download=force,
                 progress_callback=progress_callback
             )
@@ -170,10 +224,11 @@ class ModelManager:
                     comp_path.mkdir(exist_ok=True)
                     
                     if progress_callback:
-                        progress_callback(f"Downloading component: {comp_name}")
+                        progress_callback(f"📦 Downloading component: {comp_name}")
                     
                     if "filename" in comp_info:
                         # Download single file using robust downloader
+                        from ..utils.download_utils import robust_file_download
                         robust_file_download(
                             repo_id=comp_info["repo_id"],
                             filename=comp_info["filename"],
@@ -189,10 +244,18 @@ class ModelManager:
                             local_dir=str(comp_path),
                             cache_dir=str(settings.cache_dir),
                             max_retries=3,
-                            initial_workers=1,  # Use fewer workers for components
+                            initial_workers=2,  # Use fewer workers for components
                             force_download=force,
                             progress_callback=progress_callback
                         )
+            
+            # Verify download integrity
+            if progress_callback:
+                progress_callback(f"🔍 Verifying download integrity...")
+            
+            from ..utils.download_utils import check_download_integrity
+            if not check_download_integrity(str(model_path), model_info["repo_id"]):
+                raise Exception("Download integrity check failed - some files may be missing or corrupted")
             
             # Add to configuration
             model_config = ModelConfig(
@@ -207,7 +270,7 @@ class ModelManager:
             settings.add_model(model_config)
             logger.info(f"Model {model_name} download completed")
             if progress_callback:
-                progress_callback(f"✅ {model_name} download completed successfully")
+                progress_callback(f"✅ {model_name} download completed successfully and verified!")
             return True
             
         except Exception as e:
@@ -215,11 +278,13 @@ class ModelManager:
             if progress_callback:
                 progress_callback(f"❌ Download failed: {str(e)}")
             
-            # Clean up failed download
-            if model_path.exists():
+            # Clean up failed download only if it's a fresh download
+            if force and model_path.exists():
                 try:
                     shutil.rmtree(model_path)
                     logger.info(f"Cleaned up failed download directory: {model_path}")
+                    if progress_callback:
+                        progress_callback(f"🧹 Cleaned up incomplete download")
                 except Exception as cleanup_error:
                     logger.warning(f"Failed to clean up directory {model_path}: {cleanup_error}")
             return False

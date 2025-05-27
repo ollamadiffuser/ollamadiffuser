@@ -3,7 +3,8 @@ import numpy as np
 from diffusers import (
     StableDiffusionPipeline, 
     StableDiffusionXLPipeline,
-    StableDiffusion3Pipeline
+    StableDiffusion3Pipeline,
+    FluxPipeline
 )
 from PIL import Image
 import logging
@@ -25,25 +26,54 @@ class InferenceEngine:
         
     def _get_device(self) -> str:
         """Automatically detect available device"""
+        # Debug device availability
+        logger.debug(f"CUDA available: {torch.cuda.is_available()}")
+        logger.debug(f"MPS available: {torch.backends.mps.is_available()}")
+        
+        # Determine device
         if torch.cuda.is_available():
-            return "cuda"
+            device = "cuda"
+            logger.debug(f"CUDA device count: {torch.cuda.device_count()}")
         elif torch.backends.mps.is_available():
-            return "mps"  # Apple Silicon GPU
+            device = "mps"  # Apple Silicon GPU
         else:
-            return "cpu"
+            device = "cpu"
+        
+        logger.info(f"Using device: {device}")
+        if device == "cpu":
+            logger.warning("⚠️  Using CPU - this will be slower for large models")
+        
+        return device
     
     def _get_pipeline_class(self, model_type: str):
         """Get corresponding pipeline class based on model type"""
         pipeline_map = {
             "sd15": StableDiffusionPipeline,
             "sdxl": StableDiffusionXLPipeline,
-            "sd3": StableDiffusion3Pipeline
+            "sd3": StableDiffusion3Pipeline,
+            "flux": FluxPipeline
         }
         return pipeline_map.get(model_type)
     
     def load_model(self, model_config: ModelConfig) -> bool:
         """Load model"""
         try:
+            # Validate model configuration
+            if not model_config:
+                logger.error("Model configuration is None")
+                return False
+            
+            if not model_config.path:
+                logger.error(f"Model path is None for model: {model_config.name}")
+                return False
+            
+            model_path = Path(model_config.path)
+            if not model_path.exists():
+                logger.error(f"Model path does not exist: {model_config.path}")
+                return False
+            
+            logger.info(f"Loading model from path: {model_config.path}")
+            
             self.device = self._get_device()
             logger.info(f"Using device: {self.device}")
             
@@ -58,9 +88,30 @@ class InferenceEngine:
             if model_config.variant == "fp16":
                 load_kwargs["torch_dtype"] = torch.float16
                 load_kwargs["variant"] = "fp16"
+            elif model_config.variant == "bf16":
+                load_kwargs["torch_dtype"] = torch.bfloat16
             
             # Load pipeline
             logger.info(f"Loading model: {model_config.name}")
+            
+            # Special handling for FLUX models
+            if model_config.model_type == "flux":
+                # FLUX models work best with bfloat16, but use float32 on CPU or float16 on MPS
+                if self.device == "cpu":
+                    load_kwargs["torch_dtype"] = torch.float32
+                    logger.info("Using float32 for FLUX model on CPU")
+                    logger.warning("⚠️  FLUX.1-dev is a 12B parameter model. CPU inference will be very slow!")
+                    logger.warning("⚠️  For better performance, consider using a GPU with at least 12GB VRAM")
+                elif self.device == "mps":
+                    # MPS works better with float16 than bfloat16
+                    load_kwargs["torch_dtype"] = torch.float16
+                    load_kwargs["use_safetensors"] = True
+                    logger.info("Using float16 for FLUX model on MPS")
+                    logger.info("🍎 Apple Silicon GPU detected - optimizing for MPS")
+                else:
+                    load_kwargs["torch_dtype"] = torch.bfloat16
+                    load_kwargs["use_safetensors"] = True
+                    logger.info("Using bfloat16 for FLUX model")
             
             # Disable safety checker for SD 1.5 to prevent false NSFW detections
             if model_config.model_type == "sd15":
@@ -74,10 +125,60 @@ class InferenceEngine:
                     logger.info("Using float32 for CPU inference to improve stability")
                 logger.info("Safety checker disabled for SD 1.5 to prevent false NSFW detections")
             
+            # Load pipeline
             self.pipeline = pipeline_class.from_pretrained(
                 model_config.path,
                 **load_kwargs
-            ).to(self.device)
+            )
+            
+            # Move to device with proper error handling
+            try:
+                self.pipeline = self.pipeline.to(self.device)
+                logger.info(f"Pipeline moved to {self.device}")
+            except Exception as e:
+                logger.warning(f"Failed to move pipeline to {self.device}: {e}")
+                if self.device != "cpu":
+                    logger.info("Falling back to CPU")
+                    self.device = "cpu"
+                    self.pipeline = self.pipeline.to("cpu")
+            
+            # Enable memory optimizations
+            if hasattr(self.pipeline, 'enable_attention_slicing'):
+                self.pipeline.enable_attention_slicing()
+                logger.info("Enabled attention slicing for memory optimization")
+            
+            # Special optimizations for FLUX models
+            if model_config.model_type == "flux":
+                if self.device == "cuda":
+                    # CUDA-specific optimizations
+                    if hasattr(self.pipeline, 'enable_model_cpu_offload'):
+                        self.pipeline.enable_model_cpu_offload()
+                        logger.info("Enabled CPU offloading for FLUX model")
+                elif self.device == "mps":
+                    # MPS-specific optimizations
+                    logger.info("Applying MPS-specific optimizations for FLUX model")
+                    # MPS doesn't support CPU offloading, so we use attention slicing instead
+                    if hasattr(self.pipeline, 'enable_attention_slicing'):
+                        self.pipeline.enable_attention_slicing("auto")
+                        logger.info("Enabled automatic attention slicing for MPS")
+                elif self.device == "cpu":
+                    # CPU-specific optimizations
+                    logger.info("Applying CPU-specific optimizations for FLUX model")
+                    # Enable memory efficient attention if available
+                    if hasattr(self.pipeline, 'enable_xformers_memory_efficient_attention'):
+                        try:
+                            self.pipeline.enable_xformers_memory_efficient_attention()
+                            logger.info("Enabled xformers memory efficient attention")
+                        except Exception as e:
+                            logger.debug(f"xformers not available: {e}")
+                    
+                    # Set low memory mode
+                    if hasattr(self.pipeline, 'enable_sequential_cpu_offload'):
+                        try:
+                            self.pipeline.enable_sequential_cpu_offload()
+                            logger.info("Enabled sequential CPU offload for memory efficiency")
+                        except Exception as e:
+                            logger.debug(f"Sequential CPU offload not available: {e}")
             
             # Additional safety checker disabling for SD 1.5 (in case the above didn't work)
             if model_config.model_type == "sd15":
@@ -112,21 +213,40 @@ class InferenceEngine:
         """Load LoRA weights"""
         try:
             lora_config = model_config.components["lora"]
-            components_path = Path(model_config.path) / "components" / "lora"
             
-            if "filename" in lora_config:
+            # Check if it's a Hugging Face Hub model
+            if "repo_id" in lora_config:
+                # Load from Hugging Face Hub
+                repo_id = lora_config["repo_id"]
+                weight_name = lora_config.get("weight_name", "pytorch_lora_weights.safetensors")
+                
+                logger.info(f"Loading LoRA from Hugging Face Hub: {repo_id}")
+                self.pipeline.load_lora_weights(repo_id, weight_name=weight_name)
+                
+                # Set LoRA scale if specified
+                if "scale" in lora_config:
+                    scale = lora_config["scale"]
+                    if hasattr(self.pipeline, 'set_adapters'):
+                        self.pipeline.set_adapters(["default"], adapter_weights=[scale])
+                        logger.info(f"Set LoRA scale to {scale}")
+                
+                logger.info(f"LoRA weights loaded successfully from {repo_id}")
+                
+            elif "filename" in lora_config:
                 # Load from local file
+                components_path = Path(model_config.path) / "components" / "lora"
                 lora_path = components_path / lora_config["filename"]
                 if lora_path.exists():
                     self.pipeline.load_lora_weights(str(components_path), weight_name=lora_config["filename"])
                     self.pipeline.fuse_lora()
-                    logger.info("LoRA weights loaded successfully")
+                    logger.info("LoRA weights loaded successfully from local file")
             else:
                 # Load from directory
+                components_path = Path(model_config.path) / "components" / "lora"
                 if components_path.exists():
                     self.pipeline.load_lora_weights(str(components_path))
                     self.pipeline.fuse_lora()
-                    logger.info("LoRA weights loaded successfully")
+                    logger.info("LoRA weights loaded successfully from directory")
                     
         except Exception as e:
             logger.warning(f"Failed to load LoRA weights: {e}")
@@ -134,19 +254,22 @@ class InferenceEngine:
     def _apply_optimizations(self):
         """Apply performance optimizations"""
         try:
-            # Enable attention slicing to save memory
-            if hasattr(self.pipeline, 'enable_attention_slicing'):
-                self.pipeline.enable_attention_slicing()
-            
-            # Enable torch.compile acceleration (MPS not supported)
-            if hasattr(torch, 'compile') and self.device != "mps":
+            # Enable torch compile for faster inference
+            if hasattr(torch, 'compile') and self.device != "mps":  # MPS doesn't support torch.compile yet
                 if hasattr(self.pipeline, 'unet'):
-                    self.pipeline.unet = torch.compile(
-                        self.pipeline.unet, 
-                        mode="reduce-overhead", 
-                        fullgraph=True
-                    )
-                    logger.info("torch.compile optimization enabled")
+                    try:
+                        self.pipeline.unet = torch.compile(
+                            self.pipeline.unet, 
+                            mode="reduce-overhead", 
+                            fullgraph=True
+                        )
+                        logger.info("torch.compile optimization enabled")
+                    except Exception as e:
+                        logger.debug(f"torch.compile failed: {e}")
+            elif self.device == "mps":
+                logger.debug("Skipping torch.compile on MPS (not supported yet)")
+            elif self.device == "cpu":
+                logger.debug("Skipping torch.compile on CPU for stability")
                     
         except Exception as e:
             logger.warning(f"Failed to apply optimization settings: {e}")
@@ -206,11 +329,43 @@ class InferenceEngine:
             }
             
             # Add size parameters based on model type
-            if self.model_config.model_type in ["sdxl", "sd3"]:
+            if self.model_config.model_type in ["sdxl", "sd3", "flux"]:
                 generation_kwargs.update({
                     "width": width,
                     "height": height
                 })
+                
+                # FLUX models have special parameters
+                if self.model_config.model_type == "flux":
+                    # Add max_sequence_length for FLUX
+                    max_seq_len = self.model_config.parameters.get("max_sequence_length", 512)
+                    generation_kwargs["max_sequence_length"] = max_seq_len
+                    logger.info(f"Using max_sequence_length={max_seq_len} for FLUX model")
+                    
+                    # Device-specific adjustments for FLUX
+                    if self.device == "cpu":
+                        # Reduce steps for faster CPU inference
+                        if num_inference_steps > 20:
+                            num_inference_steps = 20
+                            generation_kwargs["num_inference_steps"] = num_inference_steps
+                            logger.info(f"Reduced inference steps to {num_inference_steps} for CPU performance")
+                        
+                        # Lower guidance scale for CPU stability
+                        if guidance_scale > 5.0:
+                            guidance_scale = 5.0
+                            generation_kwargs["guidance_scale"] = guidance_scale
+                            logger.info(f"Reduced guidance scale to {guidance_scale} for CPU stability")
+                        
+                        logger.warning("🐌 CPU inference detected - this may take several minutes per image")
+                    elif self.device == "mps":
+                        # MPS-specific adjustments for stability
+                        if guidance_scale > 7.0:
+                            guidance_scale = 7.0
+                            generation_kwargs["guidance_scale"] = guidance_scale
+                            logger.info(f"Reduced guidance scale to {guidance_scale} for MPS stability")
+                        
+                        logger.info("🍎 MPS inference - should be faster than CPU but slower than CUDA")
+                    
             elif self.model_config.model_type == "sd15":
                 # SD 1.5 works best with 512x512, adjust if different sizes requested
                 if width != 1024 or height != 1024:
@@ -228,8 +383,11 @@ class InferenceEngine:
             # Generate image
             logger.info(f"Generation parameters: steps={num_inference_steps}, guidance={guidance_scale}")
             
-            # Add generator for reproducible results and better stability
-            generator = torch.Generator(device=self.device).manual_seed(42)
+            # Add generator for reproducible results
+            if self.device == "cpu":
+                generator = torch.Generator().manual_seed(42)
+            else:
+                generator = torch.Generator(device=self.device).manual_seed(42)
             generation_kwargs["generator"] = generator
             
             # For SD 1.5, use a more conservative approach to avoid numerical issues
@@ -323,7 +481,25 @@ class InferenceEngine:
                     logger.warning(f"Manual pipeline execution failed: {e}, falling back to standard pipeline")
                     output = self.pipeline(**generation_kwargs)
             else:
-                output = self.pipeline(**generation_kwargs)
+                # Debug: Log device and generation kwargs
+                logger.debug(f"Pipeline device: {self.device}")
+                logger.debug(f"Generator device: {generation_kwargs['generator'].device if hasattr(generation_kwargs['generator'], 'device') else 'CPU'}")
+                
+                # Ensure all tensors are on the correct device
+                try:
+                    output = self.pipeline(**generation_kwargs)
+                except RuntimeError as e:
+                    if "CUDA" in str(e) and self.device == "cpu":
+                        logger.error(f"CUDA error on CPU device: {e}")
+                        logger.info("Attempting to fix device mismatch...")
+                        
+                        # Remove generator and try again
+                        generation_kwargs_fixed = generation_kwargs.copy()
+                        generation_kwargs_fixed.pop("generator", None)
+                        
+                        output = self.pipeline(**generation_kwargs_fixed)
+                    else:
+                        raise e
             
             # Check if output contains nsfw_content_detected
             if hasattr(output, 'nsfw_content_detected') and output.nsfw_content_detected:
@@ -424,6 +600,48 @@ class InferenceEngine:
         """Check if model is loaded"""
         return self.pipeline is not None
     
+    def load_lora_runtime(self, repo_id: str, weight_name: str = None, scale: float = 1.0):
+        """Load LoRA weights at runtime"""
+        if not self.pipeline:
+            raise RuntimeError("Model not loaded")
+        
+        try:
+            if weight_name:
+                logger.info(f"Loading LoRA from {repo_id} with weight {weight_name}")
+                self.pipeline.load_lora_weights(repo_id, weight_name=weight_name)
+            else:
+                logger.info(f"Loading LoRA from {repo_id}")
+                self.pipeline.load_lora_weights(repo_id)
+            
+            # Set LoRA scale
+            if hasattr(self.pipeline, 'set_adapters') and scale != 1.0:
+                self.pipeline.set_adapters(["default"], adapter_weights=[scale])
+                logger.info(f"Set LoRA scale to {scale}")
+            
+            logger.info("LoRA weights loaded successfully at runtime")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to load LoRA weights at runtime: {e}")
+            return False
+    
+    def unload_lora(self):
+        """Unload LoRA weights"""
+        if not self.pipeline:
+            return False
+        
+        try:
+            if hasattr(self.pipeline, 'unload_lora_weights'):
+                self.pipeline.unload_lora_weights()
+                logger.info("LoRA weights unloaded successfully")
+                return True
+            else:
+                logger.warning("Pipeline does not support LoRA unloading")
+                return False
+        except Exception as e:
+            logger.error(f"Failed to unload LoRA weights: {e}")
+            return False
+
     def get_model_info(self) -> Optional[Dict[str, Any]]:
         """Get current loaded model information"""
         if not self.model_config:
