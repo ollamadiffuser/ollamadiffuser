@@ -50,6 +50,29 @@ def create_app() -> FastAPI:
             allow_headers=["*"],
         )
     
+    # Root endpoint
+    @app.get("/")
+    async def root():
+        """Root endpoint with API information"""
+        return {
+            "name": "OllamaDiffuser API",
+            "version": "1.0.0",
+            "description": "Image generation model management and inference API",
+            "status": "running",
+            "endpoints": {
+                "documentation": "/docs",
+                "openapi_schema": "/openapi.json",
+                "health_check": "/api/health",
+                "models": "/api/models",
+                "generate": "/api/generate"
+            },
+            "usage": {
+                "web_ui": "Use 'ollamadiffuser --mode ui' to start the web interface",
+                "cli": "Use 'ollamadiffuser --help' for command line options",
+                "api_docs": "Visit /docs for interactive API documentation"
+            }
+        }
+    
     # Model management endpoints
     @app.get("/api/models")
     async def list_models():
