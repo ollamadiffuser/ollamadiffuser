@@ -10,6 +10,7 @@ This directory contains example scripts, test files, and utilities for OllamaDif
 ### Test Scripts
 - **`test_installation.py`** - Verify installation and dependencies
 - **`test_flux_support.py`** - Test FLUX.1-dev model support
+- **`test_flux_schnell.py`** - Test FLUX.1-schnell model support
 - **`test_flux_ghibli_lora.py`** - Test FLUX with Ghibli LoRA
 - **`test_lora_cli.py`** - Test LoRA CLI commands
 - **`test_device_fix.py`** - Test device compatibility fixes
@@ -17,10 +18,12 @@ This directory contains example scripts, test files, and utilities for OllamaDif
 
 ### Demo Scripts
 - **`demo.py`** - Interactive demonstration of features
+- **`flux_schnell_demo.py`** - FLUX.1-schnell demo and comparison
 
 ### Utility Scripts
 - **`monitor_download_progress.py`** - Monitor model download progress
-- **`check_flux_download.py`** - Check FLUX model download status
+- **`check_model_download.py`** - Check any model download status and integrity
+- **`check_flux_download.py`** - Check FLUX model download status (legacy)
 - **`server_legacy.py`** - Legacy server implementation
 
 ## Usage
@@ -37,6 +40,14 @@ python examples/demo.py
 
 # Test specific functionality
 python examples/test_flux_support.py
+python examples/test_flux_schnell.py
+
+# Run FLUX.1-schnell demo
+python examples/flux_schnell_demo.py
+
+# Check model download status
+python examples/check_model_download.py flux.1-schnell
+python examples/check_model_download.py --list
 ```
 
 ## Note

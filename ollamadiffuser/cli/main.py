@@ -206,6 +206,43 @@ def show(model_name: str):
             rprint(f"  {key}: {value}")
 
 @cli.command()
+@click.argument('model_name', required=False)
+@click.option('--list', '-l', is_flag=True, help='List all available models')
+def check(model_name: str, list: bool):
+    """Check model download status and integrity"""
+    if list:
+        rprint("[bold blue]📋 Available Models:[/bold blue]")
+        available_models = model_manager.list_available_models()
+        for model in available_models:
+            model_info = model_manager.get_model_info(model)
+            status = "✅ Installed" if model_manager.is_model_installed(model) else "⬇️ Available"
+            license_type = model_info.get("license_info", {}).get("type", "Unknown")
+            rprint(f"   {model:<30} {status:<15} ({license_type})")
+        return
+    
+    if not model_name:
+        rprint("[bold red]❌ Please specify a model name or use --list[/bold red]")
+        rprint("[dim]Usage: ollamadiffuser check MODEL_NAME[/dim]")
+        rprint("[dim]       ollamadiffuser check --list[/dim]")
+        return
+    
+    # Import and run the check function
+    import subprocess
+    import sys
+    from pathlib import Path
+    
+    # Run the check script
+    script_path = Path(__file__).parent.parent.parent / "examples" / "check_model_download.py"
+    try:
+        result = subprocess.run([sys.executable, str(script_path), model_name], 
+                              capture_output=True, text=True)
+        rprint(result.stdout)
+        if result.stderr:
+            rprint(f"[red]{result.stderr}[/red]")
+    except Exception as e:
+        rprint(f"[red]❌ Error running check: {e}[/red]")
+
+@cli.command()
 @click.argument('model_name')
 @click.confirmation_option(prompt='Are you sure you want to delete this model?')
 def rm(model_name: str):

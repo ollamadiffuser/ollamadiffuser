@@ -40,6 +40,10 @@ ollamadiffuser list
 # Download a model (start with smaller ones)
 ollamadiffuser pull stable-diffusion-1.5
 
+# Check download status and integrity
+ollamadiffuser check stable-diffusion-1.5
+ollamadiffuser check --list  # Check all models
+
 # Run model with API server
 ollamadiffuser run stable-diffusion-1.5
 
@@ -63,20 +67,52 @@ curl -X POST http://localhost:8000/api/generate \
   --output image.png
 ```
 
+**Fast Generation with FLUX.1-schnell** (No HuggingFace token required):
+```bash
+# Download and run FLUX.1-schnell (Apache 2.0 license)
+ollamadiffuser pull flux.1-schnell
+ollamadiffuser run flux.1-schnell
+
+# Generate high-quality image in ~4 steps (very fast!)
+curl -X POST http://localhost:8000/api/generate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "A beautiful sunset over mountains",
+    "num_inference_steps": 4,
+    "guidance_scale": 0.0,
+    "width": 1024,
+    "height": 1024
+  }' \
+  --output image.png
+```
+
 ## 📋 Supported Models
 
-| Model | Size | VRAM | Quality | Speed | Best For |
-|-------|------|------|---------|-------|----------|
-| **Stable Diffusion 1.5** | 5GB | 4GB+ | Good | Fast | Learning, quick tests |
-| **Stable Diffusion XL** | 7GB | 6GB+ | High | Medium | High-quality images |
-| **Stable Diffusion 3.5** | 8GB | 8GB+ | Very High | Medium | Professional work |
-| **FLUX.1-dev** | 15GB | 12GB+ | Excellent | Slow | Top-tier quality |
+| Model | Size | VRAM | Quality | Speed | License | Best For |
+|-------|------|------|---------|-------|---------|----------|
+| **Stable Diffusion 1.5** | 5GB | 4GB+ | Good | Fast | CreativeML Open RAIL-M | Learning, quick tests |
+| **Stable Diffusion XL** | 7GB | 6GB+ | High | Medium | CreativeML Open RAIL-M | High-quality images |
+| **Stable Diffusion 3.5** | 8GB | 8GB+ | Very High | Medium | CreativeML Open RAIL-M | Professional work |
+| **FLUX.1-dev** | 15GB | 12GB+ | Excellent | Slow | Non-commercial only | Top-tier quality (research) |
+| **FLUX.1-schnell** | 15GB | 12GB+ | Excellent | ⚡ **Very Fast** | ✅ **Apache 2.0** | **Fast production use** |
 
 ### Hardware Requirements
 
 **Minimum**: 8GB RAM, 4GB VRAM (or CPU-only)
 **Recommended**: 16GB+ RAM, 8GB+ VRAM
 **For FLUX**: 24GB+ RAM, 12GB+ VRAM
+
+### 🚀 FLUX Model Comparison
+
+| Aspect | FLUX.1-schnell | FLUX.1-dev |
+|--------|----------------|-------------|
+| **Speed** | ⚡ 4 steps (12x faster) | 🐌 50 steps |
+| **Quality** | 🎯 Excellent | 🎯 Excellent |
+| **License** | ✅ Apache 2.0 | ⚠️ Non-commercial only |
+| **HF Token** | ❌ Not required | ✅ Required |
+| **Commercial Use** | ✅ Allowed | ❌ Not allowed |
+| **Guidance Scale** | 0.0 (distilled) | 3.5 (standard) |
+| **Best For** | Fast production use | Research/non-commercial |
 
 ## 🎯 Command Reference
 
@@ -85,6 +121,8 @@ curl -X POST http://localhost:8000/api/generate \
 ollamadiffuser list                    # List all models
 ollamadiffuser list --hardware         # Show hardware requirements
 ollamadiffuser pull MODEL_NAME         # Download model
+ollamadiffuser check MODEL_NAME        # Check download status and integrity
+ollamadiffuser check --list            # List all models with status
 ollamadiffuser show MODEL_NAME         # Show model details
 ollamadiffuser rm MODEL_NAME           # Remove model
 ```
@@ -246,7 +284,7 @@ FLUX.1-dev requires HuggingFace access:
    ollamadiffuser run flux.1-dev
    ```
 
-**FLUX Optimal Settings**:
+**FLUX.1-dev Optimal Settings**:
 ```json
 {
   "num_inference_steps": 50,
@@ -256,6 +294,42 @@ FLUX.1-dev requires HuggingFace access:
   "max_sequence_length": 512
 }
 ```
+
+### FLUX.1-schnell Setup
+
+FLUX.1-schnell is the fast, distilled version of FLUX.1-dev with Apache 2.0 license:
+
+1. **Download and Run** (no token required):
+   ```bash
+   ollamadiffuser pull flux.1-schnell
+   ollamadiffuser check flux.1-schnell  # Check download status
+   ollamadiffuser run flux.1-schnell
+   ```
+
+**FLUX.1-schnell Optimal Settings**:
+```json
+{
+  "num_inference_steps": 4,
+  "guidance_scale": 0.0,
+  "width": 1024,
+  "height": 1024,
+  "max_sequence_length": 256
+}
+```
+
+**Key Benefits**:
+- ✅ **No HuggingFace token required** (Apache 2.0 license)
+- ✅ **Commercial use allowed**
+- ⚡ **12x faster generation** (4 steps vs 50 steps)
+- 🎯 **Same quality** as FLUX.1-dev
+- 🤖 **Automatic optimization** - engine detects schnell and optimizes parameters
+- ⚠️ **No guidance scale** (distilled model - automatically set to 0.0)
+
+**Enhanced Features**:
+- **Automatic detection**: Engine automatically optimizes for FLUX.1-schnell
+- **Smart parameter adjustment**: Reduces steps to 4 and sets guidance_scale to 0.0
+- **Download verification**: Use `ollamadiffuser check flux.1-schnell` for status
+- **Universal checker**: Works with all supported models
 
 ### Stable Diffusion 3.5
 
@@ -347,6 +421,7 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE) for detai
 **Model Licenses**:
 - **Stable Diffusion models**: CreativeML Open RAIL-M
 - **FLUX.1-dev**: FLUX.1-dev Non-Commercial License (non-commercial use only)
+- **FLUX.1-schnell**: Apache 2.0 (commercial use allowed)
 
 ## 🤝 Contributing
 

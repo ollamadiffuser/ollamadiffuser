@@ -87,8 +87,9 @@ def get_repo_file_list(repo_id: str) -> Dict[str, int]:
         
         file_sizes = {}
         for sibling in repo_info.siblings:
-            if sibling.size:
-                file_sizes[sibling.rfilename] = sibling.size
+            # Include all files, use 0 as default size if not available
+            size = sibling.size if sibling.size is not None else 0
+            file_sizes[sibling.rfilename] = size
         
         return file_sizes
     except Exception as e:

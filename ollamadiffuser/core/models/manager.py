@@ -44,6 +44,31 @@ class ModelManager:
                 }
             },
 
+            "flux.1-schnell": {
+                "repo_id": "black-forest-labs/FLUX.1-schnell",
+                "model_type": "flux",
+                "variant": "bf16",
+                "parameters": {
+                    "num_inference_steps": 4,
+                    "guidance_scale": 0.0,
+                    "max_sequence_length": 256
+                },
+                "hardware_requirements": {
+                    "min_vram_gb": 12,
+                    "recommended_vram_gb": 16,
+                    "min_ram_gb": 24,
+                    "recommended_ram_gb": 32,
+                    "disk_space_gb": 15,
+                    "supported_devices": ["CUDA", "MPS"],
+                    "performance_notes": "Fast distilled version of FLUX.1-dev. Generates images in ~4 steps. Requires NVIDIA RTX 4070+ or Apple M2 Pro+."
+                },
+                "license_info": {
+                    "type": "Apache 2.0",
+                    "requires_agreement": False,
+                    "commercial_use": True
+                }
+            },
+
             "stable-diffusion-3.5-medium": {
                 "repo_id": "stabilityai/stable-diffusion-3.5-medium",
                 "model_type": "sd3",
@@ -158,6 +183,18 @@ class ModelManager:
         
         model_info = self.model_registry[model_name]
         model_path = settings.get_model_path(model_name)
+        
+        # Show model information before download
+        if progress_callback:
+            license_info = model_info.get("license_info", {})
+            progress_callback(f"📦 Model: {model_name}")
+            progress_callback(f"🔗 Repository: {model_info['repo_id']}")
+            if license_info:
+                progress_callback(f"📄 License: {license_info.get('type', 'Unknown')}")
+                if license_info.get('requires_agreement', False):
+                    progress_callback(f"🔑 HuggingFace token required - ensure HF_TOKEN is set")
+                else:
+                    progress_callback(f"✅ No HuggingFace token required")
         
         # Check if partial download exists and is valid
         if not force and model_path.exists():
