@@ -81,40 +81,87 @@ def run(model_name: str, host: Optional[str], port: Optional[int]):
         settings.save_config()
 
 @cli.command()
-def list():
+@click.option('--hardware', '-hw', is_flag=True, help='Show hardware requirements')
+def list(hardware: bool):
     """List all models"""
     available_models = model_manager.list_available_models()
     installed_models = model_manager.list_installed_models()
     current_model = model_manager.get_current_model()
     
-    # Create table
-    table = Table(title="OllamaDiffuser Model List")
-    table.add_column("Model Name", style="cyan", no_wrap=True)
-    table.add_column("Status", style="green")
-    table.add_column("Size", style="blue")
-    table.add_column("Type", style="magenta")
-    
-    for model_name in available_models:
-        # Check installation status
-        if model_name in installed_models:
-            status = "✅ Installed"
-            if model_name == current_model:
-                status += " (current)"
-            
-            # Get model information
+    if hardware:
+        # Show detailed hardware requirements
+        for model_name in available_models:
             info = model_manager.get_model_info(model_name)
-            size = info.get('size', 'Unknown') if info else 'Unknown'
-            model_type = info.get('model_type', 'Unknown') if info else 'Unknown'
-        else:
-            status = "⬇️ Available"
-            size = "-"
-            # Get type from registry
-            registry_info = model_manager.model_registry.get(model_name, {})
-            model_type = registry_info.get('model_type', 'Unknown')
+            if not info:
+                continue
+                
+            # Check installation status
+            if model_name in installed_models:
+                status = "✅ Installed"
+                if model_name == current_model:
+                    status += " (current)"
+                size = info.get('size', 'Unknown')
+            else:
+                status = "⬇️ Available"
+                size = "-"
+            
+            # Create individual table for each model
+            table = Table(title=f"[bold cyan]{model_name}[/bold cyan] - {status}")
+            table.add_column("Property", style="yellow", no_wrap=True)
+            table.add_column("Value", style="white")
+            
+            # Basic info
+            table.add_row("Type", info.get('model_type', 'Unknown'))
+            table.add_row("Size", size)
+            
+            # Hardware requirements
+            hw_req = info.get('hardware_requirements', {})
+            if hw_req:
+                table.add_row("Min VRAM", f"{hw_req.get('min_vram_gb', 'Unknown')} GB")
+                table.add_row("Recommended VRAM", f"{hw_req.get('recommended_vram_gb', 'Unknown')} GB")
+                table.add_row("Min RAM", f"{hw_req.get('min_ram_gb', 'Unknown')} GB")
+                table.add_row("Recommended RAM", f"{hw_req.get('recommended_ram_gb', 'Unknown')} GB")
+                table.add_row("Disk Space", f"{hw_req.get('disk_space_gb', 'Unknown')} GB")
+                table.add_row("Supported Devices", ", ".join(hw_req.get('supported_devices', [])))
+                table.add_row("Performance Notes", hw_req.get('performance_notes', 'N/A'))
+            
+            console.print(table)
+            console.print()  # Add spacing between models
+    else:
+        # Show compact table
+        table = Table(title="OllamaDiffuser Model List")
+        table.add_column("Model Name", style="cyan", no_wrap=True)
+        table.add_column("Status", style="green")
+        table.add_column("Size", style="blue")
+        table.add_column("Type", style="magenta")
+        table.add_column("Min VRAM", style="yellow")
         
-        table.add_row(model_name, status, size, model_type)
-    
-    console.print(table)
+        for model_name in available_models:
+            # Check installation status
+            if model_name in installed_models:
+                status = "✅ Installed"
+                if model_name == current_model:
+                    status += " (current)"
+                
+                # Get model information
+                info = model_manager.get_model_info(model_name)
+                size = info.get('size', 'Unknown') if info else 'Unknown'
+                model_type = info.get('model_type', 'Unknown') if info else 'Unknown'
+            else:
+                status = "⬇️ Available"
+                size = "-"
+                # Get type from registry
+                info = model_manager.get_model_info(model_name)
+                model_type = info.get('model_type', 'Unknown') if info else 'Unknown'
+            
+            # Get hardware requirements
+            hw_req = info.get('hardware_requirements', {}) if info else {}
+            min_vram = f"{hw_req.get('min_vram_gb', '?')} GB" if hw_req else "Unknown"
+            
+            table.add_row(model_name, status, size, model_type, min_vram)
+        
+        console.print(table)
+        console.print("\n[dim]💡 Use --hardware flag to see detailed hardware requirements[/dim]")
 
 @cli.command()
 @click.argument('model_name')
@@ -134,6 +181,19 @@ def show(model_name: str):
     if info.get('installed', False):
         rprint(f"Local Path: {info.get('local_path', 'Unknown')}")
         rprint(f"Size: {info.get('size', 'Unknown')}")
+    
+    # Hardware requirements
+    if 'hardware_requirements' in info and info['hardware_requirements']:
+        hw_req = info['hardware_requirements']
+        rprint("\n[bold]Hardware Requirements:[/bold]")
+        rprint(f"  Min VRAM: {hw_req.get('min_vram_gb', 'Unknown')} GB")
+        rprint(f"  Recommended VRAM: {hw_req.get('recommended_vram_gb', 'Unknown')} GB")
+        rprint(f"  Min RAM: {hw_req.get('min_ram_gb', 'Unknown')} GB")
+        rprint(f"  Recommended RAM: {hw_req.get('recommended_ram_gb', 'Unknown')} GB")
+        rprint(f"  Disk Space: {hw_req.get('disk_space_gb', 'Unknown')} GB")
+        rprint(f"  Supported Devices: {', '.join(hw_req.get('supported_devices', []))}")
+        if hw_req.get('performance_notes'):
+            rprint(f"  Performance Notes: {hw_req.get('performance_notes')}")
     
     if 'parameters' in info and info['parameters']:
         rprint("\n[bold]Default Parameters:[/bold]")

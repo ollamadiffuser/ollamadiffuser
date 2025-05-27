@@ -98,8 +98,10 @@ ollamadiffuser/
 ### 模型管理
 ```bash
 ollamadiffuser list                          # 列出所有模型
+ollamadiffuser list --hardware               # 显示详细硬件要求
+ollamadiffuser list -hw                      # 显示详细硬件要求（简写）
 ollamadiffuser pull MODEL_NAME               # 下载模型
-ollamadiffuser show MODEL_NAME               # 显示模型信息
+ollamadiffuser show MODEL_NAME               # 显示模型信息（包含硬件要求）
 ollamadiffuser rm MODEL_NAME                 # 删除模型
 ```
 
@@ -170,11 +172,44 @@ POST /api/shutdown                  # 优雅关闭服务器
 - **Rich** 13.0+ - 终端美化
 
 ### 硬件要求
+
+#### 通用要求
 - **CPU**: 任何现代CPU（推理较慢）
-- **GPU**: NVIDIA GPU（推荐8GB+ VRAM）
-- **Apple Silicon**: M1/M2 Mac（通过MPS加速）
-- **内存**: 16GB+ RAM（推荐）
+- **内存**: 8GB+ RAM（最低），16GB+ RAM（推荐）
 - **存储**: 每个模型需要2-10GB空间
+
+#### 各模型具体要求
+
+**Stable Diffusion 1.5**
+- 最低 VRAM: 4GB
+- 推荐 VRAM: 6GB
+- 最低 RAM: 8GB
+- 推荐 RAM: 16GB
+- 磁盘空间: 5GB
+- 性能说明: 在大多数现代GPU上运行良好，包括GTX 1060+
+
+**Stable Diffusion XL**
+- 最低 VRAM: 6GB
+- 推荐 VRAM: 10GB
+- 最低 RAM: 12GB
+- 推荐 RAM: 24GB
+- 磁盘空间: 7GB
+- 性能说明: 在NVIDIA RTX 3070+或Apple M1 Pro+上表现良好
+
+**Stable Diffusion 3.5 Medium**
+- 最低 VRAM: 8GB
+- 推荐 VRAM: 12GB
+- 最低 RAM: 16GB
+- 推荐 RAM: 32GB
+- 磁盘空间: 10GB
+- 性能说明: 在NVIDIA RTX 3080+或Apple M2 Pro+上表现最佳
+
+#### 支持的设备
+- **NVIDIA GPU**: CUDA 支持（推荐）
+- **Apple Silicon**: M1/M2 Mac（通过MPS加速）
+- **CPU**: 所有平台（速度较慢）
+
+💡 **提示**: 使用 `ollamadiffuser list --hardware` 查看详细硬件要求
 
 ## 🔧 配置
 

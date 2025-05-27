@@ -32,6 +32,15 @@ class ModelManager:
                 "parameters": {
                     "num_inference_steps": 28,
                     "guidance_scale": 3.5
+                },
+                "hardware_requirements": {
+                    "min_vram_gb": 8,
+                    "recommended_vram_gb": 12,
+                    "min_ram_gb": 16,
+                    "recommended_ram_gb": 32,
+                    "disk_space_gb": 10,
+                    "supported_devices": ["CUDA", "MPS", "CPU"],
+                    "performance_notes": "Best on NVIDIA RTX 3080+ or Apple M2 Pro+"
                 }
             },
             "stable-diffusion-xl-base": {
@@ -41,6 +50,15 @@ class ModelManager:
                 "parameters": {
                     "num_inference_steps": 50,
                     "guidance_scale": 7.5
+                },
+                "hardware_requirements": {
+                    "min_vram_gb": 6,
+                    "recommended_vram_gb": 10,
+                    "min_ram_gb": 12,
+                    "recommended_ram_gb": 24,
+                    "disk_space_gb": 7,
+                    "supported_devices": ["CUDA", "MPS", "CPU"],
+                    "performance_notes": "Good on NVIDIA RTX 3070+ or Apple M1 Pro+"
                 }
             },
             "stable-diffusion-1.5": {
@@ -50,6 +68,15 @@ class ModelManager:
                 "parameters": {
                     "num_inference_steps": 20,
                     "guidance_scale": 7.0
+                },
+                "hardware_requirements": {
+                    "min_vram_gb": 4,
+                    "recommended_vram_gb": 6,
+                    "min_ram_gb": 8,
+                    "recommended_ram_gb": 16,
+                    "disk_space_gb": 5,
+                    "supported_devices": ["CUDA", "MPS", "CPU"],
+                    "performance_notes": "Runs well on most modern GPUs, including GTX 1060+"
                 }
             }
         }
