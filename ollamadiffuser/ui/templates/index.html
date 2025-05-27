@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -278,85 +278,85 @@
     <div class="container">
         <div class="header">
             <h1>🎨 OllamaDiffuser</h1>
-            <p>图像生成模型管理工具</p>
+            <p>Image Generation Model Management Tool</p>
         </div>
         
         <div class="status-bar">
             <div class="status-item">
                 <div class="status-indicator {{ 'status-loaded' if model_loaded else 'status-unloaded' }}"></div>
-                <span>模型状态: {{ '已加载' if model_loaded else '未加载' }}</span>
+                <span>Model Status: {{ 'Loaded' if model_loaded else 'Not Loaded' }}</span>
             </div>
             {% if current_model %}
             <div class="status-item">
-                <span>当前模型: <strong>{{ current_model }}</strong></span>
+                <span>Current Model: <strong>{{ current_model }}</strong></span>
             </div>
             {% endif %}
             <div class="status-item">
-                <span>已安装模型: {{ installed_models|length }}</span>
+                <span>Installed Models: {{ installed_models|length }}</span>
             </div>
             <div class="status-item">
                 <div class="status-indicator {{ 'status-loaded' if current_lora else 'status-unloaded' }}"></div>
-                <span>LoRA状态: {{ '已加载' if current_lora else '未加载' }}</span>
+                <span>LoRA Status: {{ 'Loaded' if current_lora else 'Not Loaded' }}</span>
             </div>
             {% if current_lora %}
             <div class="status-item">
-                <span>当前LoRA: <strong>{{ current_lora }}</strong></span>
+                <span>Current LoRA: <strong>{{ current_lora }}</strong></span>
             </div>
             {% endif %}
             <div class="status-item">
-                <span>已安装LoRA: {{ installed_loras|length }}</span>
+                <span>Installed LoRAs: {{ installed_loras|length }}</span>
             </div>
         </div>
         
         <div class="model-management">
-            <h3>🔧 模型管理</h3>
+            <h3>🔧 Model Management</h3>
             {% if installed_models %}
             <form method="post" action="/load_model" style="margin-bottom: 15px;">
                 <div class="model-controls">
                     <select name="model_name" required>
-                        <option value="">选择要加载的模型...</option>
+                        <option value="">Select model to load...</option>
                         {% for model in installed_models %}
                         <option value="{{ model }}" {{ 'selected' if model == current_model else '' }}>{{ model }}</option>
                         {% endfor %}
                     </select>
-                    <button type="submit" class="btn-small">🚀 加载模型</button>
+                    <button type="submit" class="btn-small">🚀 Load Model</button>
                 </div>
             </form>
             {% endif %}
             
             {% if model_loaded %}
             <form method="post" action="/unload_model">
-                <button type="submit" class="btn-small btn-danger">🔄 卸载当前模型</button>
+                <button type="submit" class="btn-small btn-danger">🔄 Unload Current Model</button>
             </form>
             {% endif %}
             
             {% if not installed_models %}
             <div class="model-info">
-                <strong>📥 没有已安装的模型</strong><br>
-                请使用CLI安装模型: <code>ollamadiffuser pull model-name</code>
+                <strong>📥 No installed models</strong><br>
+                Please install models using CLI: <code>ollamadiffuser pull model-name</code>
             </div>
             {% endif %}
         </div>
         
         <div class="model-management">
-            <h3>🔄 LoRA 管理</h3>
+            <h3>🔄 LoRA Management</h3>
             
             <!-- Download LoRA Section -->
             <form method="post" action="/pull_lora" style="margin-bottom: 15px;">
                 <div style="display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 10px; align-items: end;">
                     <div>
                         <label for="repo_id" style="display: block; margin-bottom: 5px; font-size: 12px; color: #6b7280;">Hugging Face Repository ID</label>
-                        <input type="text" name="repo_id" id="repo_id" placeholder="例如: openfree/flux-chatgpt-ghibli-lora" required style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: white; font-size: 14px;">
+                        <input type="text" name="repo_id" id="repo_id" placeholder="e.g.: openfree/flux-chatgpt-ghibli-lora" required style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: white; font-size: 14px;">
                     </div>
                     <div>
-                        <label for="weight_name" style="display: block; margin-bottom: 5px; font-size: 12px; color: #6b7280;">权重文件名 (可选)</label>
-                        <input type="text" name="weight_name" id="weight_name" placeholder="例如: lora.safetensors" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: white; font-size: 14px;">
+                        <label for="weight_name" style="display: block; margin-bottom: 5px; font-size: 12px; color: #6b7280;">Weight File Name (Optional)</label>
+                        <input type="text" name="weight_name" id="weight_name" placeholder="e.g.: lora.safetensors" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: white; font-size: 14px;">
                     </div>
                     <div>
-                        <label for="alias" style="display: block; margin-bottom: 5px; font-size: 12px; color: #6b7280;">别名 (可选)</label>
-                        <input type="text" name="alias" id="alias" placeholder="例如: ghibli" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: white; font-size: 14px;">
+                        <label for="alias" style="display: block; margin-bottom: 5px; font-size: 12px; color: #6b7280;">Alias (Optional)</label>
+                        <input type="text" name="alias" id="alias" placeholder="e.g.: ghibli" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: white; font-size: 14px;">
                     </div>
-                    <button type="submit" class="btn-small">📥 下载LoRA</button>
+                    <button type="submit" class="btn-small">📥 Download LoRA</button>
                 </div>
             </form>
             
@@ -365,7 +365,7 @@
             <form method="post" action="/load_lora" style="margin-bottom: 15px;">
                 <div class="model-controls">
                     <select name="lora_name" required style="flex: 2;">
-                        <option value="">选择要加载的LoRA...</option>
+                        <option value="">Select LoRA to load...</option>
                         {% for lora_name, lora_info in installed_loras.items() %}
                         <option value="{{ lora_name }}" {{ 'selected' if lora_name == current_lora else '' }}>
                             {{ lora_name }} ({{ lora_info.get('repo_id', 'Unknown') }})
@@ -373,10 +373,10 @@
                         {% endfor %}
                     </select>
                     <div style="display: flex; flex-direction: column; min-width: 100px;">
-                        <label for="scale" style="font-size: 12px; color: #6b7280; margin-bottom: 2px;">强度</label>
+                        <label for="scale" style="font-size: 12px; color: #6b7280; margin-bottom: 2px;">Strength</label>
                         <input type="number" name="scale" id="scale" value="1.0" min="0.1" max="2.0" step="0.1" style="padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: white; font-size: 14px;">
                     </div>
-                    <button type="submit" class="btn-small" {{ 'disabled' if not model_loaded }}>🚀 加载LoRA</button>
+                    <button type="submit" class="btn-small" {{ 'disabled' if not model_loaded }}>🚀 Load LoRA</button>
                 </div>
             </form>
             {% endif %}
@@ -384,32 +384,32 @@
             <!-- Unload LoRA Section -->
             {% if current_lora %}
             <form method="post" action="/unload_lora">
-                <button type="submit" class="btn-small btn-danger">🔄 卸载当前LoRA</button>
+                <button type="submit" class="btn-small btn-danger">🔄 Unload Current LoRA</button>
             </form>
             {% endif %}
             
             <!-- LoRA Status -->
             {% if not installed_loras %}
             <div class="model-info">
-                <strong>📥 没有已安装的LoRA</strong><br>
-                请在上方输入Hugging Face仓库ID下载LoRA，或使用CLI: <code>ollamadiffuser lora pull repo-id</code>
+                <strong>📥 No installed LoRAs</strong><br>
+                Please enter a Hugging Face repository ID above to download LoRA, or use CLI: <code>ollamadiffuser lora pull repo-id</code>
             </div>
             {% endif %}
             
             {% if installed_loras and not model_loaded %}
             <div class="model-info">
-                <strong>⚠️ 注意:</strong> 需要先加载模型才能使用LoRA
+                <strong>⚠️ Note:</strong> You need to load a model first before using LoRA
             </div>
             {% endif %}
         </div>
         
         <div class="main-content">
             <div class="form-section">
-                <h2>图像生成</h2>
+                <h2>Image Generation</h2>
                 
                 {% if not model_loaded %}
                 <div class="model-info">
-                    <strong>⚠️ 注意:</strong> 请先在上方的模型管理区域加载一个模型，或使用CLI: <code>ollamadiffuser load model-name</code>
+                    <strong>⚠️ Note:</strong> Please first load a model in the model management area above, or use CLI: <code>ollamadiffuser load model-name</code>
                 </div>
                 {% endif %}
                 
@@ -427,60 +427,60 @@
                 
                 <form method="post" action="/generate" id="generateForm">
                     <div class="form-group">
-                        <label for="prompt">提示词 (Prompt)</label>
-                        <textarea name="prompt" id="prompt" rows="3" placeholder="描述你想要生成的图像..." required>{{ prompt or '' }}</textarea>
+                        <label for="prompt">Prompt</label>
+                        <textarea name="prompt" id="prompt" rows="3" placeholder="Describe the image you want to generate..." required>{{ prompt or '' }}</textarea>
                     </div>
                     
                     <div class="form-group">
-                        <label for="negative_prompt">负面提示词 (Negative Prompt)</label>
-                        <textarea name="negative_prompt" id="negative_prompt" rows="2" placeholder="描述你不想要的内容...">{{ negative_prompt or 'low quality, bad anatomy, worst quality, low resolution' }}</textarea>
+                        <label for="negative_prompt">Negative Prompt</label>
+                        <textarea name="negative_prompt" id="negative_prompt" rows="2" placeholder="Describe what you don't want in the image...">{{ negative_prompt or 'low quality, bad anatomy, worst quality, low resolution' }}</textarea>
                     </div>
                     
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="width">宽度</label>
+                            <label for="width">Width</label>
                             <input type="number" name="width" id="width" value="{{ width or 1024 }}" min="512" max="2048" step="64">
                         </div>
                         <div class="form-group">
-                            <label for="height">高度</label>
+                            <label for="height">Height</label>
                             <input type="number" name="height" id="height" value="{{ height or 1024 }}" min="512" max="2048" step="64">
                         </div>
                     </div>
                     
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="num_inference_steps">推理步数</label>
+                            <label for="num_inference_steps">Inference Steps</label>
                             <input type="number" name="num_inference_steps" id="num_inference_steps" value="{{ num_inference_steps or 28 }}" min="1" max="100">
                         </div>
                         <div class="form-group">
-                            <label for="guidance_scale">引导强度</label>
+                            <label for="guidance_scale">Guidance Scale</label>
                             <input type="number" name="guidance_scale" id="guidance_scale" value="{{ guidance_scale or 3.5 }}" min="1" max="20" step="0.1">
                         </div>
                     </div>
                     
                     <button type="submit" class="btn" {{ 'disabled' if not model_loaded }}>
-                        🎨 生成图像
+                        🎨 Generate Image
                     </button>
                 </form>
             </div>
             
             <div class="result-section">
-                <h2>生成结果</h2>
+                <h2>Generation Result</h2>
                 
                 <div class="loading" id="loading">
                     <div class="spinner"></div>
-                    <p>正在生成图像，请稍候...</p>
+                    <p>Generating image, please wait...</p>
                 </div>
                 
                 {% if image_b64 %}
                 <img src="data:image/png;base64,{{ image_b64 }}" alt="Generated Image" class="result-image">
                 <p style="color: #6b7280; margin-top: 15px;">
-                    <strong>提示词:</strong> {{ prompt }}
+                    <strong>Prompt:</strong> {{ prompt }}
                 </p>
                 {% else %}
                 <div style="background: #f9fafb; border: 2px dashed #d1d5db; border-radius: 12px; padding: 60px 20px; color: #6b7280;">
                     <div style="font-size: 3em; margin-bottom: 15px;">🖼️</div>
-                    <p>生成的图像将显示在这里</p>
+                    <p>Generated image will be displayed here</p>
                 </div>
                 {% endif %}
             </div>

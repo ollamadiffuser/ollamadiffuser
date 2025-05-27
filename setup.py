@@ -6,12 +6,12 @@ with open("README.md", "r", encoding="utf-8") as fh:
 setup(
     name="ollamadiffuser",
     version="1.0.0",
-    author="Your Name",
-    author_email="your.email@example.com",
-    description="An Ollama-like image generation model management tool",
+    author="OllamaDiffuser Team",
+    author_email="contact@ollamadiffuser.dev",
+    description="🎨 Ollama-like image generation model management tool with LoRA support",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/your-username/ollamadiffuser",
+    url="https://github.com/ollamadiffuser/ollamadiffuser",
     packages=find_packages(),
     classifiers=[
         "Development Status :: 4 - Beta",
