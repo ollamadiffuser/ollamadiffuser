@@ -180,6 +180,15 @@
             border: 1px solid #fecaca;
         }
         
+        .success-message {
+            background: #d1fae5;
+            color: #065f46;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #a7f3d0;
+        }
+        
         .loading {
             display: none;
             text-align: center;
@@ -324,6 +333,12 @@
                 {% if not model_loaded %}
                 <div class="model-info">
                     <strong>⚠️ 注意:</strong> 请先在上方的模型管理区域加载一个模型，或使用CLI: <code>ollamadiffuser load model-name</code>
+                </div>
+                {% endif %}
+                
+                {% if success_message %}
+                <div class="success-message">
+                    {{ success_message }}
                 </div>
                 {% endif %}
                 

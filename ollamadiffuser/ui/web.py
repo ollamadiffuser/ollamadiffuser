@@ -24,14 +24,7 @@ def create_ui_app() -> FastAPI:
         current_model = model_manager.get_current_model()
         model_loaded = model_manager.is_model_loaded()
         
-        # If there's a current model but it's not loaded, try to load it
-        if current_model and not model_loaded:
-            try:
-                if model_manager.load_model(current_model):
-                    model_loaded = True
-            except Exception as e:
-                # Log the error but don't fail the page load
-                pass
+        # Don't auto-load model on startup - let user choose
         
         return templates.TemplateResponse("index.html", {
             "request": request,
@@ -56,17 +49,9 @@ def create_ui_app() -> FastAPI:
         image_b64 = None
         
         try:
-            # Check if model is actually loaded in memory (not just persisted state)
-            if model_manager.loaded_model is None:
-                current_model = model_manager.get_current_model()
-                if current_model:
-                    # Try to load the current model
-                    if model_manager.load_model(current_model):
-                        error_message = None  # Model loaded successfully
-                    else:
-                        error_message = f"Failed to load model {current_model}. Please check if the model is properly installed."
-                else:
-                    error_message = "No model loaded. Please load a model first."
+            # Check if model is actually loaded in memory
+            if not model_manager.is_model_loaded():
+                error_message = "No model loaded. Please load a model first using the model management section above."
             
             if not error_message:
                 # Get inference engine
@@ -113,6 +98,61 @@ def create_ui_app() -> FastAPI:
             "height": height,
             "image_b64": image_b64,
             "error_message": error_message
+        })
+    
+    @app.post("/load_model")
+    async def load_model_ui(request: Request, model_name: str = Form(...)):
+        """Load model (Web UI)"""
+        success = False
+        error_message = None
+        
+        try:
+            if model_manager.load_model(model_name):
+                success = True
+            else:
+                error_message = f"Failed to load model {model_name}"
+        except Exception as e:
+            error_message = f"Error loading model: {str(e)}"
+        
+        # Redirect back to home page
+        models = model_manager.list_available_models()
+        installed_models = model_manager.list_installed_models()
+        current_model = model_manager.get_current_model()
+        
+        return templates.TemplateResponse("index.html", {
+            "request": request,
+            "models": models,
+            "installed_models": installed_models,
+            "current_model": current_model,
+            "model_loaded": model_manager.is_model_loaded(),
+            "success_message": f"Model {model_name} loaded successfully!" if success else None,
+            "error_message": error_message
+        })
+    
+    @app.post("/unload_model")
+    async def unload_model_ui(request: Request):
+        """Unload current model (Web UI)"""
+        try:
+            current_model = model_manager.get_current_model()
+            model_manager.unload_model()
+            success_message = f"Model {current_model} unloaded successfully!" if current_model else "Model unloaded!"
+        except Exception as e:
+            success_message = None
+            error_message = f"Error unloading model: {str(e)}"
+        
+        # Redirect back to home page
+        models = model_manager.list_available_models()
+        installed_models = model_manager.list_installed_models()
+        current_model = model_manager.get_current_model()
+        
+        return templates.TemplateResponse("index.html", {
+            "request": request,
+            "models": models,
+            "installed_models": installed_models,
+            "current_model": current_model,
+            "model_loaded": model_manager.is_model_loaded(),
+            "success_message": success_message,
+            "error_message": error_message if 'error_message' in locals() else None
         })
     
     return app 

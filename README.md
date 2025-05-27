@@ -109,6 +109,7 @@ ollamadiffuser run MODEL_NAME                # 运行模型服务
 ollamadiffuser serve                         # 启动API服务器
 ollamadiffuser load MODEL_NAME               # 加载模型到内存
 ollamadiffuser unload                        # 卸载当前模型
+ollamadiffuser stop                          # 停止运行的服务器
 ollamadiffuser ps                            # 显示运行状态
 ```
 
@@ -152,6 +153,7 @@ DELETE /api/models/{model_name}     # 删除模型
 ### 健康检查
 ```http
 GET /api/health                     # 服务健康状态
+POST /api/shutdown                  # 优雅关闭服务器
 ```
 
 ## 📦 依赖要求

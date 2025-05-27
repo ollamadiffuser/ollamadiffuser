@@ -148,6 +148,26 @@ def create_app() -> FastAPI:
             "current_model": model_manager.get_current_model()
         }
     
+    # Server management endpoints
+    @app.post("/api/shutdown")
+    async def shutdown_server():
+        """Gracefully shutdown the server"""
+        import os
+        import signal
+        import asyncio
+        
+        # Unload model first
+        model_manager.unload_model()
+        
+        # Schedule server shutdown
+        def shutdown():
+            os.kill(os.getpid(), signal.SIGTERM)
+        
+        # Delay shutdown to allow response to be sent
+        asyncio.get_event_loop().call_later(0.5, shutdown)
+        
+        return {"message": "Server shutting down..."}
+    
     return app
 
 def run_server(host: str = None, port: int = None):

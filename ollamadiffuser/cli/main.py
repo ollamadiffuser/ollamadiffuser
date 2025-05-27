@@ -237,6 +237,49 @@ def unload():
         rprint("[yellow]No model to unload[/yellow]")
 
 @cli.command()
+def stop():
+    """Stop running server"""
+    if not model_manager.is_server_running():
+        rprint("[yellow]No server is currently running[/yellow]")
+        return
+    
+    try:
+        import requests
+        import signal
+        import psutil
+        
+        host = settings.server.host
+        port = settings.server.port
+        
+        # Try graceful shutdown via API first
+        try:
+            response = requests.post(f"http://{host}:{port}/api/shutdown", timeout=5)
+            if response.status_code == 200:
+                rprint("[green]Server stopped gracefully[/green]")
+                return
+        except:
+            pass
+        
+        # Fallback: Find and terminate the process
+        for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+            try:
+                cmdline = proc.info['cmdline']
+                if cmdline and any('uvicorn' in arg for arg in cmdline) and any(str(port) in arg for arg in cmdline):
+                    proc.terminate()
+                    proc.wait(timeout=10)
+                    rprint(f"[green]Server process (PID: {proc.info['pid']}) stopped[/green]")
+                    return
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.TimeoutExpired):
+                continue
+        
+        rprint("[red]Could not find or stop the server process[/red]")
+        
+    except ImportError:
+        rprint("[red]psutil package required for stop command. Install with: pip install psutil[/red]")
+    except Exception as e:
+        rprint(f"[red]Failed to stop server: {e}[/red]")
+
+@cli.command()
 def version():
     """Show version information"""
     rprint("[bold cyan]OllamaDiffuser v1.0.0[/bold cyan]")
