@@ -24,8 +24,8 @@ class ModelManager:
                 "model_type": "flux",
                 "variant": "bf16",
                 "parameters": {
-                    "num_inference_steps": 50,
-                    "guidance_scale": 3.5,
+                    "num_inference_steps": 16,
+                    "guidance_scale": 2.0,
                     "max_sequence_length": 512
                 },
                 "hardware_requirements": {
