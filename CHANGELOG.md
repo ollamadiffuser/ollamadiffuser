@@ -16,6 +16,7 @@ All notable changes to OllamaDiffuser will be documented in this file.
   - Stable Diffusion XL
   - Stable Diffusion 3.5 Medium
   - FLUX.1-dev (with HuggingFace token support)
+  - FLUX.1-schnell (with HuggingFace token support)
 - **Hardware Optimization**: Auto-detection for CUDA, MPS, and CPU
 - **Comprehensive CLI**: Ollama-style commands for model management
 - **REST API**: Full API for integration with other applications
