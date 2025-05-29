@@ -226,21 +226,271 @@ def check(model_name: str, list: bool):
         rprint("[dim]       ollamadiffuser check --list[/dim]")
         return
     
-    # Import and run the check function
-    import subprocess
-    import sys
-    from pathlib import Path
+    # Check model download status directly
+    status = _check_download_status(model_name)
     
-    # Run the check script
-    script_path = Path(__file__).parent.parent.parent / "examples" / "check_model_download.py"
+    rprint("\n" + "="*60)
+    
+    if status is True:
+        rprint(f"[green]🎉 {model_name} is ready to use![/green]")
+        rprint(f"\n[blue]💡 You can now run:[/blue]")
+        rprint(f"   [cyan]ollamadiffuser run {model_name}[/cyan]")
+    elif status == "needs_config":
+        rprint(f"[yellow]⚠️ {model_name} files are complete but model needs configuration[/yellow]")
+        rprint(f"\n[blue]💡 Try reinstalling:[/blue]")
+        rprint(f"   [cyan]ollamadiffuser pull {model_name} --force[/cyan]")
+    elif status == "downloading":
+        rprint(f"[yellow]🔄 {model_name} is currently downloading[/yellow]")
+        rprint(f"\n[blue]💡 Wait for download to complete or check progress[/blue]")
+    elif status == "incomplete":
+        rprint(f"[yellow]⚠️ Download is incomplete[/yellow]")
+        rprint(f"\n[blue]💡 Resume download with:[/blue]")
+        rprint(f"   [cyan]ollamadiffuser pull {model_name}[/cyan]")
+        rprint(f"\n[blue]💡 Or force fresh download with:[/blue]")
+        rprint(f"   [cyan]ollamadiffuser pull {model_name} --force[/cyan]")
+    else:
+        rprint(f"[red]❌ {model_name} is not downloaded[/red]")
+        rprint(f"\n[blue]💡 Download with:[/blue]")
+        rprint(f"   [cyan]ollamadiffuser pull {model_name}[/cyan]")
+    
+    _show_model_specific_help(model_name)
+    
+    rprint(f"\n[dim]📚 For more help: ollamadiffuser --help[/dim]")
+
+
+def _check_download_status(model_name: str):
+    """Check the current download status of any model"""
+    from ..core.utils.download_utils import check_download_integrity, get_repo_file_list, format_size
+    import subprocess
+    
+    rprint(f"[blue]🔍 Checking {model_name} download status...[/blue]\n")
+    
+    # Check if model is in registry
+    if model_name not in model_manager.model_registry:
+        rprint(f"[red]❌ {model_name} not found in model registry[/red]")
+        available_models = model_manager.list_available_models()
+        rprint(f"[blue]📋 Available models: {', '.join(available_models)}[/blue]")
+        return False
+    
+    model_info = model_manager.model_registry[model_name]
+    repo_id = model_info["repo_id"]
+    model_path = settings.get_model_path(model_name)
+    
+    rprint(f"[cyan]📦 Model: {model_name}[/cyan]")
+    rprint(f"[cyan]🔗 Repository: {repo_id}[/cyan]")
+    rprint(f"[cyan]📁 Local path: {model_path}[/cyan]")
+    
+    # Show model-specific info
+    license_info = model_info.get("license_info", {})
+    if license_info:
+        rprint(f"[yellow]📄 License: {license_info.get('type', 'Unknown')}[/yellow]")
+        rprint(f"[yellow]🔑 HF Token Required: {'Yes' if license_info.get('requires_agreement', False) else 'No'}[/yellow]")
+        rprint(f"[yellow]💼 Commercial Use: {'Allowed' if license_info.get('commercial_use', False) else 'Not Allowed'}[/yellow]")
+    
+    # Show optimal parameters
+    params = model_info.get("parameters", {})
+    if params:
+        rprint(f"[green]⚡ Optimal Settings:[/green]")
+        rprint(f"   Steps: {params.get('num_inference_steps', 'N/A')}")
+        rprint(f"   Guidance: {params.get('guidance_scale', 'N/A')}")
+        if 'max_sequence_length' in params:
+            rprint(f"   Max Seq Length: {params['max_sequence_length']}")
+    
+    rprint()
+    
+    # Check if directory exists
+    if not model_path.exists():
+        rprint("[yellow]📂 Status: Not downloaded[/yellow]")
+        return False
+    
+    # Get repository file list
+    rprint("[blue]🌐 Getting repository information...[/blue]")
     try:
-        result = subprocess.run([sys.executable, str(script_path), model_name], 
-                              capture_output=True, text=True)
-        rprint(result.stdout)
-        if result.stderr:
-            rprint(f"[red]{result.stderr}[/red]")
+        file_sizes = get_repo_file_list(repo_id)
+        total_expected_size = sum(file_sizes.values())
+        total_files_expected = len(file_sizes)
+        
+        rprint(f"[blue]📊 Expected: {total_files_expected} files, {format_size(total_expected_size)} total[/blue]")
     except Exception as e:
-        rprint(f"[red]❌ Error running check: {e}[/red]")
+        rprint(f"[yellow]⚠️ Could not get repository info: {e}[/yellow]")
+        file_sizes = {}
+        total_expected_size = 0
+        total_files_expected = 0
+    
+    # Check local files
+    local_files = []
+    local_size = 0
+    
+    for file_path in model_path.rglob('*'):
+        if file_path.is_file():
+            rel_path = file_path.relative_to(model_path)
+            file_size = file_path.stat().st_size
+            local_files.append((str(rel_path), file_size))
+            local_size += file_size
+    
+    rprint(f"[blue]💾 Downloaded: {len(local_files)} files, {format_size(local_size)} total[/blue]")
+    
+    if total_expected_size > 0:
+        progress_percent = (local_size / total_expected_size) * 100
+        rprint(f"[blue]📈 Progress: {progress_percent:.1f}%[/blue]")
+    
+    rprint()
+    
+    # Check for missing files
+    if file_sizes:
+        # Check if we have size information from the API
+        has_size_info = any(size > 0 for size in file_sizes.values())
+        
+        if has_size_info:
+            # Normal case: we have size information, do detailed comparison
+            missing_files = []
+            incomplete_files = []
+            
+            for expected_file, expected_size in file_sizes.items():
+                local_file_path = model_path / expected_file
+                if not local_file_path.exists():
+                    missing_files.append(expected_file)
+                elif expected_size > 0 and local_file_path.stat().st_size != expected_size:
+                    local_size_actual = local_file_path.stat().st_size
+                    incomplete_files.append((expected_file, local_size_actual, expected_size))
+            
+            if missing_files:
+                rprint(f"[red]❌ Missing files ({len(missing_files)}):[/red]")
+                for missing_file in missing_files[:10]:  # Show first 10
+                    rprint(f"   - {missing_file}")
+                if len(missing_files) > 10:
+                    rprint(f"   ... and {len(missing_files) - 10} more")
+                rprint()
+            
+            if incomplete_files:
+                rprint(f"[yellow]⚠️ Incomplete files ({len(incomplete_files)}):[/yellow]")
+                for incomplete_file, actual_size, expected_size in incomplete_files[:5]:
+                    rprint(f"   - {incomplete_file}: {format_size(actual_size)}/{format_size(expected_size)}")
+                if len(incomplete_files) > 5:
+                    rprint(f"   ... and {len(incomplete_files) - 5} more")
+                rprint()
+            
+            if not missing_files and not incomplete_files:
+                rprint("[green]✅ All files present and complete![/green]")
+                
+                # Check integrity
+                rprint("[blue]🔍 Checking download integrity...[/blue]")
+                if check_download_integrity(str(model_path), repo_id):
+                    rprint("[green]✅ Download integrity verified![/green]")
+                    
+                    # Check if model is in configuration
+                    if model_manager.is_model_installed(model_name):
+                        rprint("[green]✅ Model is properly configured[/green]")
+                        return True
+                    else:
+                        rprint("[yellow]⚠️ Model files complete but not in configuration[/yellow]")
+                        return "needs_config"
+                else:
+                    rprint("[red]❌ Download integrity check failed[/red]")
+                    return False
+            else:
+                rprint("[yellow]⚠️ Download is incomplete[/yellow]")
+                return "incomplete"
+        else:
+            # No size information available from API (common with gated repos)
+            rprint("[blue]ℹ️ Repository API doesn't provide file sizes (common with gated models)[/blue]")
+            rprint("[blue]🔍 Checking essential model files instead...[/blue]")
+            
+            # Check for essential model files
+            essential_files = ['model_index.json']
+            essential_dirs = ['transformer', 'text_encoder', 'text_encoder_2', 'tokenizer', 'tokenizer_2', 'vae', 'scheduler']
+            
+            missing_essential = []
+            for essential_file in essential_files:
+                if not (model_path / essential_file).exists():
+                    missing_essential.append(essential_file)
+            
+            existing_dirs = []
+            for essential_dir in essential_dirs:
+                if (model_path / essential_dir).exists():
+                    existing_dirs.append(essential_dir)
+            
+            if missing_essential:
+                rprint(f"[red]❌ Missing essential files: {', '.join(missing_essential)}[/red]")
+                return "incomplete"
+            
+            if existing_dirs:
+                rprint(f"[green]✅ Found model components: {', '.join(existing_dirs)}[/green]")
+            
+            # Check integrity
+            rprint("[blue]🔍 Checking download integrity...[/blue]")
+            if check_download_integrity(str(model_path), repo_id):
+                rprint("[green]✅ Download integrity verified![/green]")
+                
+                # Check if model is in configuration
+                if model_manager.is_model_installed(model_name):
+                    rprint("[green]✅ Model is properly configured and functional[/green]")
+                    return True
+                else:
+                    rprint("[yellow]⚠️ Model files complete but not in configuration[/yellow]")
+                    return "needs_config"
+            else:
+                rprint("[red]❌ Download integrity check failed[/red]")
+                return False
+    
+    # Check if download process is running
+    rprint("[blue]🔍 Checking for active download processes...[/blue]")
+    try:
+        result = subprocess.run(['ps', 'aux'], capture_output=True, text=True)
+        if f'ollamadiffuser pull {model_name}' in result.stdout:
+            rprint("[yellow]🔄 Download process is currently running[/yellow]")
+            return "downloading"
+        else:
+            rprint("[blue]💤 No active download process found[/blue]")
+    except Exception as e:
+        rprint(f"[yellow]⚠️ Could not check processes: {e}[/yellow]")
+    
+    return "incomplete"
+
+
+def _show_model_specific_help(model_name: str):
+    """Show model-specific help and recommendations"""
+    model_info = model_manager.get_model_info(model_name)
+    if not model_info:
+        return
+    
+    rprint(f"\n[bold blue]💡 {model_name} Specific Tips:[/bold blue]")
+    
+    # License-specific help
+    license_info = model_info.get("license_info", {})
+    if license_info.get("requires_agreement", False):
+        rprint(f"   [yellow]🔑 Requires HuggingFace token and license agreement[/yellow]")
+        rprint(f"   [blue]📝 Visit: https://huggingface.co/{model_info['repo_id']}[/blue]")
+        rprint(f"   [cyan]🔧 Set token: export HF_TOKEN=your_token_here[/cyan]")
+    else:
+        rprint(f"   [green]✅ No HuggingFace token required![/green]")
+    
+    # Model-specific optimizations
+    if "schnell" in model_name.lower():
+        rprint(f"   [green]⚡ FLUX.1-schnell is 12x faster than FLUX.1-dev[/green]")
+        rprint(f"   [green]🎯 Optimized for 4-step generation[/green]")
+        rprint(f"   [green]💼 Commercial use allowed (Apache 2.0)[/green]")
+    elif "flux.1-dev" in model_name.lower():
+        rprint(f"   [blue]🎨 Best quality FLUX model[/blue]")
+        rprint(f"   [blue]🔬 Requires 50 steps for optimal results[/blue]")
+        rprint(f"   [yellow]⚠️ Non-commercial license only[/yellow]")
+    elif "stable-diffusion-1.5" in model_name.lower():
+        rprint(f"   [green]🚀 Great for learning and quick tests[/green]")
+        rprint(f"   [green]💾 Smallest model, runs on most hardware[/green]")
+    elif "stable-diffusion-3.5" in model_name.lower():
+        rprint(f"   [green]🏆 Excellent quality-to-speed ratio[/green]")
+        rprint(f"   [green]🔄 Great LoRA ecosystem[/green]")
+    
+    # Hardware recommendations
+    hw_req = model_info.get("hardware_requirements", {})
+    if hw_req:
+        min_vram = hw_req.get("min_vram_gb", 0)
+        if min_vram >= 12:
+            rprint(f"   [yellow]🖥️ Requires high-end GPU (RTX 4070+ or M2 Pro+)[/yellow]")
+        elif min_vram >= 8:
+            rprint(f"   [blue]🖥️ Requires mid-range GPU (RTX 3080+ or M1 Pro+)[/blue]")
+        else:
+            rprint(f"   [green]🖥️ Runs on most modern GPUs[/green]")
 
 @cli.command()
 @click.argument('model_name')
