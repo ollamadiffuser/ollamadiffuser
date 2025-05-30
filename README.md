@@ -4,6 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 
+
 ## Local AI Image Generation with OllamaDiffuser
 
 **OllamaDiffuser** simplifies local deployment of **Stable Diffusion**, **FLUX.1**, and other AI image generation models. An intuitive **local SD** tool inspired by **Ollama's** simplicity - perfect for **local diffuser** workflows with CLI, web UI, and LoRA support.
@@ -43,7 +44,7 @@ curl -X POST http://localhost:8000/api/generate \
 ### Option 2: Development Installation
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/ollamadiffuser.git
+git clone https://github.com/ollamadiffuser/ollamadiffuser.git
 cd ollamadiffuser
 
 # Install dependencies
@@ -55,14 +56,19 @@ pip install -e .
 # Install a model
 ollamadiffuser pull stable-diffusion-1.5
 
-# Load the model
-ollamadiffuser load stable-diffusion-1.5
+# Run the model (loads and starts API server)
+ollamadiffuser run stable-diffusion-1.5
 
-# Generate an image
-ollamadiffuser generate "a beautiful sunset over mountains"
+# Generate an image via API
+curl -X POST http://localhost:8000/api/generate \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "a beautiful sunset over mountains"}' \
+  --output image.png
 
 # Start web interface
 ollamadiffuser --mode ui
+
+open http://localhost:8001 in your browser
 ```
 
 ### ControlNet Quick Start
@@ -70,8 +76,8 @@ ollamadiffuser --mode ui
 # Install ControlNet model
 ollamadiffuser pull controlnet-canny-sd15
 
-# Load ControlNet model
-ollamadiffuser load controlnet-canny-sd15
+# Run ControlNet model (loads and starts API server)
+ollamadiffuser run controlnet-canny-sd15
 
 # Generate with control image
 curl -X POST http://localhost:8000/api/generate/controlnet \
@@ -153,21 +159,29 @@ ollamadiffuser lora unload
 
 ### Command Line Interface
 ```bash
-# Generate with advanced parameters
-ollamadiffuser generate \
-  "a futuristic cityscape" \
-  --negative-prompt "blurry, low quality" \
-  --steps 30 \
-  --guidance 7.5 \
-  --width 1024 \
-  --height 1024
+# Pull and run a model
+ollamadiffuser pull stable-diffusion-1.5
+ollamadiffuser run stable-diffusion-1.5
+
+# In another terminal, generate images via API
+curl -X POST http://localhost:8000/api/generate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "a futuristic cityscape",
+    "negative_prompt": "blurry, low quality",
+    "num_inference_steps": 30,
+    "guidance_scale": 7.5,
+    "width": 1024,
+    "height": 1024
+  }' \
+  --output image.png
 ```
 
 ### Web UI
 ```bash
 # Start web interface
 ollamadiffuser --mode ui
-# Open http://localhost:8001
+Open http://localhost:8001
 ```
 
 Features:
@@ -181,6 +195,8 @@ Features:
 # Start API server
 ollamadiffuser --mode api
 
+ollamadiffuser load stable-diffusion-1.5
+
 # Generate image
 curl -X POST http://localhost:8000/api/generate \
   -H "Content-Type: application/json" \
@@ -192,16 +208,19 @@ curl -X POST http://localhost:8000/api/generate \
 from ollamadiffuser.core.models.manager import model_manager
 
 # Load model
-model_manager.load_model("stable-diffusion-1.5")
-engine = model_manager.loaded_model
-
-# Generate image
-image = engine.generate_image(
-    prompt="a beautiful sunset",
-    width=1024,
-    height=1024
-)
-image.save("output.jpg")
+success = model_manager.load_model("stable-diffusion-1.5")
+if success:
+    engine = model_manager.loaded_model
+    
+    # Generate image
+    image = engine.generate_image(
+        prompt="a beautiful sunset",
+        width=1024,
+        height=1024
+    )
+    image.save("output.jpg")
+else:
+    print("Failed to load model")
 ```
 
 ## 📦 Supported Models
@@ -231,18 +250,6 @@ Models are automatically configured with optimal settings:
 - **Precision Handling**: FP16/BF16 support for efficiency
 - **Safety Features**: NSFW filter bypass for creative freedom
 
-### Performance Tuning
-```bash
-# Enable verbose logging
-ollamadiffuser -v generate "test prompt"
-
-# Check system status
-ollamadiffuser status
-
-# Monitor memory usage
-ollamadiffuser info
-```
-
 ## 🔧 Advanced Usage
 
 ### ControlNet Parameters
@@ -265,8 +272,9 @@ from ollamadiffuser.core.utils.controlnet_preprocessors import controlnet_prepro
 controlnet_preprocessor.initialize()
 
 # Process multiple images
-for image_path in image_list:
-    control_img = controlnet_preprocessor.preprocess(image, "canny")
+prompt = "beautiful landscape"  # Define the prompt
+for i, image_path in enumerate(image_list):
+    control_img = controlnet_preprocessor.preprocess(image_path, "canny")
     result = engine.generate_image(prompt, control_image=control_img)
     result.save(f"output_{i}.jpg")
 ```
@@ -294,8 +302,6 @@ with open("control.jpg", "rb") as f:
 ## 📚 Documentation & Guides
 
 - **[ControlNet Guide](CONTROLNET_GUIDE.md)**: Comprehensive ControlNet usage and examples
-- **[LoRA Guide](LORA_GUIDE.md)**: LoRA management and best practices
-- **[API Reference](API_REFERENCE.md)**: Complete API documentation
 - **[Website Documentation](https://www.ollamadiffuser.com/)**: Complete tutorials and guides
 
 ## 🚀 Performance & Hardware
@@ -341,46 +347,26 @@ curl -X POST http://localhost:8000/api/controlnet/initialize
 
 #### Memory Issues
 ```bash
-# Use smaller image sizes
-ollamadiffuser generate "test" --width 512 --height 512
+# Use smaller image sizes via API
+curl -X POST http://localhost:8000/api/generate \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "test", "width": 512, "height": 512}' \
+  --output test.png
 
-# Enable CPU offloading (automatic)
-# Close other applications
+# CPU offloading is automatic
+# Close other applications to free memory
 # Use basic preprocessors instead of advanced ones
 ```
 
 ### Debug Mode
 ```bash
 # Enable verbose logging
-ollamadiffuser -v run model-name
-
-# Check system information
-ollamadiffuser info
-
-# Validate installation
-ollamadiffuser doctor
+ollamadiffuser --verbose run model-name
 ```
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
-
-### Development Setup
-```bash
-# Clone repository
-git clone https://github.com/yourusername/ollamadiffuser.git
-cd ollamadiffuser
-
-# Install in development mode
-pip install -e ".[dev]"
-
-# Run tests
-pytest tests/
-
-# Run linting
-flake8 ollamadiffuser/
-black ollamadiffuser/
-```
+We welcome contributions! Please check the GitHub repository for contribution guidelines.
 
 ## 🤝 Community & Support
 
@@ -410,9 +396,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-- **Documentation**: [Full documentation](docs/)
-- **Issues**: [GitHub Issues](https://github.com/yourusername/ollamadiffuser/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/ollamadiffuser/discussions)
+- **Issues**: [GitHub Issues](https://github.com/ollamadiffuser/ollamadiffuser/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/ollamadiffuser/ollamadiffuser/discussions)
 
 ---
 

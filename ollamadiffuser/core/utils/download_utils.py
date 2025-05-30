@@ -11,25 +11,107 @@ from pathlib import Path
 from huggingface_hub import snapshot_download, hf_hub_download, HfApi
 from tqdm import tqdm
 import threading
+import requests
 
 logger = logging.getLogger(__name__)
 
-class ProgressTracker:
-    """Track download progress across multiple files"""
+class EnhancedProgressTracker:
+    """Enhanced progress tracker that provides Ollama-style detailed progress information"""
     
     def __init__(self, total_files: int = 0, progress_callback: Optional[Callable] = None):
         self.total_files = total_files
         self.completed_files = 0
         self.current_file = ""
         self.file_progress = {}
+        self.file_start_times = {}
+        self.file_speeds = {}
         self.progress_callback = progress_callback
         self.lock = threading.Lock()
+        self.overall_start_time = time.time()
+        self.total_size = 0
+        self.downloaded_size = 0
         
-    def update_file_progress(self, filename: str, downloaded: int, total: int):
-        """Update progress for a specific file"""
+    def set_total_size(self, total_size: int):
+        """Set the total size for all files"""
         with self.lock:
+            self.total_size = total_size
+    
+    def start_file(self, filename: str, file_size: int = 0):
+        """Mark a file as started"""
+        with self.lock:
+            self.current_file = filename
+            self.file_start_times[filename] = time.time()
+            self.file_progress[filename] = (0, file_size)
+            
+            # Extract hash-like identifier for Ollama-style display
+            import re
+            hash_match = re.search(r'([a-f0-9]{8,})', filename)
+            if hash_match:
+                display_name = hash_match.group(1)[:12]  # First 12 characters
+            else:
+                # Fallback to filename without extension
+                display_name = Path(filename).stem[:12]
+            
+            if self.progress_callback:
+                self.progress_callback(f"pulling {display_name}")
+    
+    def update_file_progress(self, filename: str, downloaded: int, total: int):
+        """Update progress for a specific file with speed calculation"""
+        with self.lock:
+            current_time = time.time()
+            
+            # Update file progress
+            old_downloaded = self.file_progress.get(filename, (0, 0))[0]
             self.file_progress[filename] = (downloaded, total)
-            self._report_progress()
+            
+            # Update overall downloaded size
+            size_diff = downloaded - old_downloaded
+            self.downloaded_size += size_diff
+            
+            # Calculate speed for this file
+            if filename in self.file_start_times:
+                elapsed = current_time - self.file_start_times[filename]
+                if elapsed > 0 and downloaded > 0:
+                    speed = downloaded / elapsed  # bytes per second
+                    self.file_speeds[filename] = speed
+            
+            # Report progress in Ollama style
+            if self.progress_callback and total > 0:
+                percentage = (downloaded / total) * 100
+                
+                # Format sizes
+                downloaded_mb = downloaded / (1024 * 1024)
+                total_mb = total / (1024 * 1024)
+                
+                # Calculate speed in MB/s
+                speed_mbps = self.file_speeds.get(filename, 0) / (1024 * 1024)
+                
+                # Calculate ETA
+                if speed_mbps > 0:
+                    remaining_mb = total_mb - downloaded_mb
+                    eta_seconds = remaining_mb / speed_mbps
+                    eta_min = int(eta_seconds // 60)
+                    eta_sec = int(eta_seconds % 60)
+                    eta_str = f"{eta_min}m{eta_sec:02d}s"
+                else:
+                    eta_str = "?"
+                
+                # Extract hash for display
+                import re
+                hash_match = re.search(r'([a-f0-9]{8,})', filename)
+                if hash_match:
+                    display_name = hash_match.group(1)[:12]
+                else:
+                    display_name = Path(filename).stem[:12]
+                
+                # Create progress bar
+                bar_width = 20
+                filled = int((percentage / 100) * bar_width)
+                bar = "█" * filled + " " * (bar_width - filled)
+                
+                progress_msg = f"pulling {display_name}: {percentage:3.0f}% ▕{bar}▏ {downloaded_mb:.0f} MB/{total_mb:.0f} MB {speed_mbps:.0f} MB/s {eta_str}"
+                
+                self.progress_callback(progress_msg)
     
     def complete_file(self, filename: str):
         """Mark a file as completed"""
@@ -38,34 +120,42 @@ class ProgressTracker:
             if filename in self.file_progress:
                 downloaded, total = self.file_progress[filename]
                 self.file_progress[filename] = (total, total)
-            self._report_progress()
+            
+            # Report completion
+            if self.progress_callback:
+                import re
+                hash_match = re.search(r'([a-f0-9]{8,})', filename)
+                if hash_match:
+                    display_name = hash_match.group(1)[:12]
+                else:
+                    display_name = Path(filename).stem[:12]
+                
+                total_mb = self.file_progress.get(filename, (0, 0))[1] / (1024 * 1024)
+                self.progress_callback(f"pulling {display_name}: 100% ▕████████████████████▏ {total_mb:.0f} MB/{total_mb:.0f} MB")
     
-    def set_current_file(self, filename: str):
-        """Set the currently downloading file"""
-        with self.lock:
-            self.current_file = filename
-            self._report_progress()
-    
-    def _report_progress(self):
-        """Report current progress"""
+    def report_overall_progress(self):
+        """Report overall progress"""
         if self.progress_callback:
-            # Calculate overall progress
-            total_downloaded = 0
-            total_size = 0
-            
-            for downloaded, size in self.file_progress.values():
-                total_downloaded += downloaded
-                total_size += size
-            
-            progress_msg = f"Files: {self.completed_files}/{self.total_files}"
-            if total_size > 0:
-                percent = (total_downloaded / total_size) * 100
-                progress_msg += f" | Overall: {percent:.1f}%"
-            
-            if self.current_file:
-                progress_msg += f" | Current: {self.current_file}"
-            
-            self.progress_callback(progress_msg)
+            if self.total_size > 0:
+                overall_percent = (self.downloaded_size / self.total_size) * 100
+                downloaded_gb = self.downloaded_size / (1024 * 1024 * 1024)
+                total_gb = self.total_size / (1024 * 1024 * 1024)
+                
+                elapsed = time.time() - self.overall_start_time
+                if elapsed > 0:
+                    overall_speed = self.downloaded_size / elapsed / (1024 * 1024)  # MB/s
+                    
+                    if overall_speed > 0:
+                        remaining_gb = total_gb - downloaded_gb
+                        eta_seconds = (remaining_gb * 1024) / overall_speed  # Convert GB to MB for calculation
+                        eta_min = int(eta_seconds // 60)
+                        eta_sec = int(eta_seconds % 60)
+                        eta_str = f"{eta_min}m{eta_sec:02d}s"
+                    else:
+                        eta_str = "?"
+                    
+                    progress_msg = f"Overall progress: {overall_percent:.1f}% | {downloaded_gb:.1f} GB/{total_gb:.1f} GB | {overall_speed:.1f} MB/s | ETA: {eta_str}"
+                    self.progress_callback(progress_msg)
 
 def configure_hf_environment():
     """Configure HuggingFace Hub environment for better downloads"""
@@ -132,7 +222,7 @@ def robust_snapshot_download(
     
     # Get file list and sizes for progress tracking
     if progress_callback:
-        progress_callback("📋 Getting repository information...")
+        progress_callback("pulling manifest")
     
     file_sizes = get_repo_file_list(repo_id)
     total_size = sum(file_sizes.values())
@@ -140,19 +230,64 @@ def robust_snapshot_download(
     if progress_callback and file_sizes:
         progress_callback(f"📦 Repository: {len(file_sizes)} files, {format_size(total_size)} total")
     
+    # Initialize enhanced progress tracker
+    progress_tracker = EnhancedProgressTracker(len(file_sizes), progress_callback)
+    progress_tracker.set_total_size(total_size)
+    
     # Check what's already downloaded
     local_path = Path(local_dir)
+    existing_size = 0
     if local_path.exists() and not force_download:
         existing_files = []
-        existing_size = 0
         for file_path in local_path.rglob('*'):
             if file_path.is_file():
                 rel_path = file_path.relative_to(local_path)
                 existing_files.append(str(rel_path))
-                existing_size += file_path.stat().st_size
+                file_size = file_path.stat().st_size
+                existing_size += file_size
+                # Mark existing files as completed in progress tracker
+                progress_tracker.file_progress[str(rel_path)] = (file_size, file_size)
+                progress_tracker.downloaded_size += file_size
+                progress_tracker.completed_files += 1
         
         if progress_callback and existing_files:
             progress_callback(f"📁 Found {len(existing_files)} existing files ({format_size(existing_size)})")
+    
+    # Custom tqdm class to capture HuggingFace download progress
+    class OllamaStyleTqdm(tqdm):
+        def __init__(self, *args, **kwargs):
+            # Extract description to get filename
+            desc = kwargs.get('desc', '')
+            self.current_filename = desc
+            
+            # Get file size from our pre-fetched data
+            file_size = file_sizes.get(self.current_filename, 0)
+            if file_size > 0:
+                kwargs['total'] = file_size
+                
+            super().__init__(*args, **kwargs)
+            
+            # Start tracking this file
+            if self.current_filename and progress_callback:
+                progress_tracker.start_file(self.current_filename, file_size)
+        
+        def update(self, n=1):
+            super().update(n)
+            
+            # Update our progress tracker
+            if self.current_filename and progress_callback:
+                downloaded = getattr(self, 'n', 0)
+                total = getattr(self, 'total', 0) or file_sizes.get(self.current_filename, 0)
+                
+                if total > 0:
+                    progress_tracker.update_file_progress(self.current_filename, downloaded, total)
+        
+        def close(self):
+            super().close()
+            
+            # Mark file as completed
+            if self.current_filename and progress_callback:
+                progress_tracker.complete_file(self.current_filename)
     
     last_exception = None
     
@@ -166,12 +301,6 @@ def robust_snapshot_download(
             
             logger.info(f"Download attempt {attempt + 1}/{max_retries} with {workers} workers")
             
-            # Create a custom progress callback for tqdm
-            def tqdm_callback(t):
-                def inner(chunk_size):
-                    t.update(chunk_size)
-                return inner
-            
             result = snapshot_download(
                 repo_id=repo_id,
                 local_dir=local_dir,
@@ -181,7 +310,7 @@ def robust_snapshot_download(
                 resume_download=True,  # Enable resume
                 etag_timeout=300 + (attempt * 60),  # Increase timeout on retries
                 force_download=force_download,
-                tqdm_class=tqdm if progress_callback else None
+                tqdm_class=OllamaStyleTqdm if progress_callback else None
             )
             
             if progress_callback:

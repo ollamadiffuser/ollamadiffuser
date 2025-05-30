@@ -5,14 +5,53 @@ import logging
 from typing import Optional
 from rich.console import Console
 from rich.table import Table
-from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, DownloadColumn, TransferSpeedColumn, TimeRemainingColumn
 from rich import print as rprint
+import time
 
 from ..core.models.manager import model_manager
 from ..core.config.settings import settings
 from ..api.server import run_server
 
 console = Console()
+
+class OllamaStyleProgress:
+    """Enhanced progress tracker that mimics Ollama's progress display"""
+    
+    def __init__(self, console: Console):
+        self.console = console
+        self.last_message = ""
+        
+    def update(self, message: str):
+        """Update progress with a message"""
+        # Skip duplicate messages
+        if message == self.last_message:
+            return
+            
+        self.last_message = message
+        
+        # Handle different types of messages
+        if message.startswith("pulling ") and ":" in message and "%" in message:
+            # This is a file progress message from download_utils
+            # Format: "pulling e6a7edc1a4d7: 12% ▕██                ▏ 617 MB/5200 MB 44 MB/s 1m44s"
+            self.console.print(message)
+        elif message.startswith("pulling manifest"):
+            self.console.print(message)
+        elif message.startswith("📦 Repository:"):
+            # Repository info
+            self.console.print(f"[dim]{message}[/dim]")
+        elif message.startswith("📁 Found"):
+            # Existing files info
+            self.console.print(f"[dim]{message}[/dim]")
+        elif message.startswith("✅") and "download completed" in message:
+            self.console.print(f"[green]{message}[/green]")
+        elif message.startswith("❌"):
+            self.console.print(f"[red]{message}[/red]")
+        elif message.startswith("⚠️"):
+            self.console.print(f"[yellow]{message}[/yellow]")
+        else:
+            # For other messages, print with dimmed style
+            self.console.print(f"[dim]{message}[/dim]")
 
 @click.group()
 @click.option('--verbose', '-v', is_flag=True, help='Enable verbose output')
@@ -30,24 +69,26 @@ def pull(model_name: str, force: bool):
     """Download model"""
     rprint(f"[blue]Downloading model: {model_name}[/blue]")
     
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        console=console
-    ) as progress:
-        task = progress.add_task(f"Downloading {model_name}...", total=None)
-        
-        def progress_callback(message: str):
-            """Update progress display with download status"""
-            progress.update(task, description=message)
-        
+    # Use the new Ollama-style progress tracker
+    progress_tracker = OllamaStyleProgress(console)
+    
+    def progress_callback(message: str):
+        """Enhanced progress callback with Ollama-style display"""
+        progress_tracker.update(message)
+    
+    try:
         if model_manager.pull_model(model_name, force=force, progress_callback=progress_callback):
-            progress.update(task, description=f"✅ {model_name} download completed")
+            progress_tracker.update("✅ download completed")
             rprint(f"[green]Model {model_name} downloaded successfully![/green]")
         else:
-            progress.update(task, description=f"❌ {model_name} download failed")
             rprint(f"[red]Model {model_name} download failed![/red]")
             sys.exit(1)
+    except KeyboardInterrupt:
+        rprint("\n[yellow]Download cancelled by user[/yellow]")
+        sys.exit(1)
+    except Exception as e:
+        rprint(f"[red]Download failed: {str(e)}[/red]")
+        sys.exit(1)
 
 @cli.command()
 @click.argument('model_name')
