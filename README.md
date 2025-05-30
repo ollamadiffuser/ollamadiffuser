@@ -53,6 +53,9 @@ pip install -e .
 
 ### Basic Usage
 ```bash
+# Check version
+ollamadiffuser -V
+
 # Install a model
 ollamadiffuser pull stable-diffusion-1.5
 
@@ -68,7 +71,7 @@ curl -X POST http://localhost:8000/api/generate \
 # Start web interface
 ollamadiffuser --mode ui
 
-open http://localhost:8001 in your browser
+open http://localhost:8001
 ```
 
 ### ControlNet Quick Start
@@ -201,6 +204,9 @@ ollamadiffuser load stable-diffusion-1.5
 curl -X POST http://localhost:8000/api/generate \
   -H "Content-Type: application/json" \
   -d '{"prompt": "a beautiful landscape", "width": 1024, "height": 1024}'
+
+# API document
+http://localhost:8000/docs
 ```
 
 ### Python API
@@ -323,6 +329,43 @@ with open("control.jpg", "rb") as f:
 
 ## 🔧 Troubleshooting
 
+### Installation Issues
+
+#### Missing Dependencies (cv2/OpenCV Error)
+If you encounter `ModuleNotFoundError: No module named 'cv2'`, run:
+
+```bash
+# Quick fix
+pip install opencv-python>=4.8.0
+
+# Or use the built-in verification tool
+ollamadiffuser verify-deps
+
+# Or install with all optional dependencies
+pip install ollamadiffuser[full]
+```
+
+#### Complete Dependency Check
+```bash
+# Run comprehensive system diagnostics
+ollamadiffuser doctor
+
+# Verify and install missing dependencies interactively
+ollamadiffuser verify-deps
+```
+
+#### Clean Installation
+If you're having persistent issues:
+
+```bash
+# Uninstall and reinstall
+pip uninstall ollamadiffuser
+pip install --no-cache-dir ollamadiffuser[full]
+
+# Verify installation
+ollamadiffuser verify-deps
+```
+
 ### Common Issues
 
 #### Slow Startup
@@ -356,6 +399,29 @@ curl -X POST http://localhost:8000/api/generate \
 # CPU offloading is automatic
 # Close other applications to free memory
 # Use basic preprocessors instead of advanced ones
+```
+
+### Platform-Specific Issues
+
+#### macOS Apple Silicon
+```bash
+# If you encounter OpenCV issues on Apple Silicon
+pip uninstall opencv-python
+pip install opencv-python-headless>=4.8.0
+```
+
+#### Windows
+```bash
+# If you encounter build errors
+pip install --only-binary=all opencv-python>=4.8.0
+```
+
+#### Linux
+```bash
+# If you need system dependencies
+sudo apt-get update
+sudo apt-get install libgl1-mesa-glx libglib2.0-0
+pip install opencv-python>=4.8.0
 ```
 
 ### Debug Mode

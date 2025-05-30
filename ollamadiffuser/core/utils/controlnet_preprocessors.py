@@ -1,4 +1,10 @@
-import cv2
+try:
+    import cv2
+    CV2_AVAILABLE = True
+except ImportError:
+    CV2_AVAILABLE = False
+    cv2 = None
+
 import numpy as np
 from PIL import Image
 import logging
@@ -15,6 +21,13 @@ class ControlNetPreprocessorManager:
         self._initialized = False
         self._initialization_attempted = False
         self._available_types = []
+        
+        # Check dependencies on initialization
+        if not CV2_AVAILABLE:
+            logger.warning(
+                "OpenCV (cv2) is not installed. "
+                "Install it with: pip install opencv-python>=4.8.0"
+            )
     
     def is_initialized(self) -> bool:
         """Check if preprocessors are initialized"""
@@ -22,6 +35,9 @@ class ControlNetPreprocessorManager:
     
     def is_available(self) -> bool:
         """Check if ControlNet preprocessors are available"""
+        if not CV2_AVAILABLE:
+            return False
+            
         if not self._initialization_attempted:
             # Try a lightweight check without full initialization
             try:
@@ -41,6 +57,12 @@ class ControlNetPreprocessorManager:
         Returns:
             True if initialization successful, False otherwise
         """
+        if not CV2_AVAILABLE:
+            raise ImportError(
+                "OpenCV (cv2) is required for ControlNet preprocessors. "
+                "Install it with: pip install opencv-python>=4.8.0"
+            )
+            
         if self._initialized and not force:
             return True
             
@@ -164,17 +186,28 @@ class ControlNetPreprocessorManager:
     
     def _init_basic_processors(self):
         """Initialize basic OpenCV-based processors as fallback"""
-        logger.info("Using basic OpenCV-based preprocessors")
-        self.processors = {
-            'canny': self._canny_opencv,
-            'depth': self._depth_basic,
-            'scribble': self._scribble_basic,
-        }
+        if not CV2_AVAILABLE:
+            logger.warning("OpenCV not available, using minimal fallback processors")
+            self.processors = {
+                'canny': self._simple_edge_fallback,
+                'depth': self._simple_depth_fallback,
+                'scribble': self._simple_edge_fallback,
+            }
+        else:
+            logger.info("Using basic OpenCV-based preprocessors")
+            self.processors = {
+                'canny': self._canny_opencv,
+                'depth': self._depth_basic,
+                'scribble': self._scribble_basic,
+            }
         self._initialized = True
         self._available_types = list(self.processors.keys())
     
     def _canny_opencv(self, image: Image.Image, low_threshold: int = 100, high_threshold: int = 200) -> Image.Image:
         """Basic Canny edge detection using OpenCV"""
+        if not CV2_AVAILABLE:
+            raise ImportError("OpenCV is required for Canny edge detection")
+            
         # Convert PIL to OpenCV format
         image_cv = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
         
@@ -187,6 +220,9 @@ class ControlNetPreprocessorManager:
     
     def _depth_basic(self, image: Image.Image) -> Image.Image:
         """Basic depth estimation using simple gradients"""
+        if not CV2_AVAILABLE:
+            raise ImportError("OpenCV is required for depth estimation")
+            
         # Convert to grayscale
         gray = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2GRAY)
         
@@ -207,6 +243,9 @@ class ControlNetPreprocessorManager:
     
     def _scribble_basic(self, image: Image.Image) -> Image.Image:
         """Basic scribble detection using edge detection"""
+        if not CV2_AVAILABLE:
+            raise ImportError("OpenCV is required for scribble detection")
+            
         # Convert to grayscale
         gray = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2GRAY)
         
@@ -220,6 +259,39 @@ class ControlNetPreprocessorManager:
         # Convert to RGB
         edges_rgb = cv2.cvtColor(edges, cv2.COLOR_GRAY2RGB)
         return Image.fromarray(edges_rgb)
+    
+    def _simple_edge_fallback(self, image: Image.Image, **kwargs) -> Image.Image:
+        """Simple edge detection fallback using PIL/numpy only"""
+        # Convert to numpy array
+        img_array = np.array(image.convert('L'))  # Convert to grayscale
+        
+        # Simple gradient-based edge detection
+        grad_x = np.abs(np.diff(img_array, axis=1))
+        grad_y = np.abs(np.diff(img_array, axis=0))
+        
+        # Pad to maintain original size
+        grad_x = np.pad(grad_x, ((0, 0), (0, 1)), mode='edge')
+        grad_y = np.pad(grad_y, ((0, 1), (0, 0)), mode='edge')
+        
+        # Combine gradients
+        edges = np.sqrt(grad_x**2 + grad_y**2)
+        edges = np.uint8(255 * edges / np.max(edges) if np.max(edges) > 0 else edges)
+        
+        # Convert to RGB
+        edges_rgb = np.stack([edges, edges, edges], axis=2)
+        return Image.fromarray(edges_rgb)
+    
+    def _simple_depth_fallback(self, image: Image.Image, **kwargs) -> Image.Image:
+        """Simple depth estimation fallback using PIL/numpy only"""
+        # Convert to grayscale
+        gray = np.array(image.convert('L'))
+        
+        # Simple depth based on intensity (brighter = closer)
+        depth = 255 - gray  # Invert so darker areas are "further"
+        
+        # Convert to RGB
+        depth_rgb = np.stack([depth, depth, depth], axis=2)
+        return Image.fromarray(depth_rgb)
     
     def preprocess(self, 
                    image: Union[Image.Image, str], 

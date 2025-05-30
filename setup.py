@@ -1,11 +1,49 @@
 from setuptools import setup, find_packages
+import sys
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
+# Core dependencies that must be installed
+REQUIRED = [
+    "torch>=2.1.0",
+    "diffusers>=0.26.0",
+    "transformers>=4.35.0",
+    "accelerate>=0.25.0",
+    "fastapi>=0.104.0",
+    "uvicorn>=0.23.0",
+    "huggingface-hub>=0.16.0",
+    "Pillow>=9.0.0",
+    "click>=8.0.0",
+    "rich>=13.0.0",
+    "pydantic>=2.0.0",
+    "protobuf>=3.20.0",
+    "sentencepiece>=0.1.99",
+    "safetensors>=0.3.0",
+    "python-multipart>=0.0.0",
+    "psutil>=5.9.0",
+    "jinja2>=3.0.0",
+    "peft>=0.10.0",
+    "numpy>=1.21.0",
+]
+
+# Optional dependencies that can fall back gracefully
+OPTIONAL = [
+    "controlnet-aux>=0.0.7",
+    "opencv-python>=4.8.0",
+]
+
+# Try to install optional dependencies, but don't fail if they can't be installed
+install_requires = REQUIRED[:]
+for dep in OPTIONAL:
+    try:
+        install_requires.append(dep)
+    except Exception:
+        print(f"Warning: Optional dependency {dep} could not be added to requirements")
+
 setup(
     name="ollamadiffuser",
-    version="1.1.1",
+    version="1.1.2",
     author="OllamaDiffuser Team",
     author_email="ollamadiffuser@gmail.com",
     description="🎨 Ollama-like image generation model management tool with LoRA support",
@@ -27,28 +65,7 @@ setup(
         "Topic :: Multimedia :: Graphics",
     ],
     python_requires=">=3.10",
-    install_requires=[
-        "torch>=2.1.0",
-        "diffusers>=0.26.0",
-        "transformers>=4.35.0",
-        "accelerate>=0.25.0",
-        "fastapi>=0.104.0",
-        "uvicorn>=0.23.0",
-        "huggingface-hub>=0.16.0",
-        "Pillow>=9.0.0",
-        "click>=8.0.0",
-        "rich>=13.0.0",
-        "pydantic>=2.0.0",
-        "protobuf>=3.20.0",
-        "sentencepiece>=0.1.99",
-        "safetensors>=0.3.0",
-        "python-multipart>=0.0.0",
-        "psutil>=5.9.0",
-        "jinja2>=3.0.0",
-        "peft>=0.10.0",
-        "controlnet-aux>=0.0.7",
-        "opencv-python>=4.8.0"
-    ],
+    install_requires=install_requires,
     extras_require={
         "dev": [
             "pytest>=7.0.0",
@@ -56,6 +73,10 @@ setup(
             "black>=23.0.0",
             "isort>=5.12.0",
             "flake8>=6.0.0",
+        ],
+        "full": [
+            "controlnet-aux>=0.0.7",
+            "opencv-python>=4.8.0",
         ],
     },
     entry_points={

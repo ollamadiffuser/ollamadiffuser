@@ -9,6 +9,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, Downlo
 from rich import print as rprint
 import time
 
+from .. import __version__, print_version
 from ..core.models.manager import model_manager
 from ..core.config.settings import settings
 from ..api.server import run_server
@@ -53,14 +54,47 @@ class OllamaStyleProgress:
             # For other messages, print with dimmed style
             self.console.print(f"[dim]{message}[/dim]")
 
-@click.group()
+@click.group(invoke_without_command=True)
 @click.option('--verbose', '-v', is_flag=True, help='Enable verbose output')
-def cli(verbose):
+@click.option('--version', '-V', is_flag=True, help='Show version and exit')
+@click.option('--mode', type=click.Choice(['cli', 'api', 'ui']), help='Running mode: cli (command line), api (API server), ui (Web interface)')
+@click.option('--host', default=None, help='Server host address (for api/ui modes)')
+@click.option('--port', type=int, default=None, help='Server port (for api/ui modes)')
+@click.pass_context
+def cli(ctx, verbose, version, mode, host, port):
     """OllamaDiffuser - Image generation model management tool"""
+    if version:
+        print_version()
+        sys.exit(0)
+        
     if verbose:
         logging.basicConfig(level=logging.DEBUG)
     else:
         logging.basicConfig(level=logging.WARNING)
+    
+    # Handle mode-based execution
+    if mode:
+        if mode == 'api':
+            rprint("[blue]Starting OllamaDiffuser API server...[/blue]")
+            run_server(host=host, port=port)
+            sys.exit(0)
+        elif mode == 'ui':
+            rprint("[blue]Starting OllamaDiffuser Web UI...[/blue]")
+            import uvicorn
+            from ..ui.web import create_ui_app
+            app = create_ui_app()
+            ui_host = host or settings.server.host
+            ui_port = port or (settings.server.port + 1)  # Web UI uses different port
+            uvicorn.run(app, host=ui_host, port=ui_port)
+            sys.exit(0)
+        elif mode == 'cli':
+            # Continue with normal CLI processing
+            pass
+    
+    # If no subcommand is provided and no mode/version flag, show help
+    if ctx.invoked_subcommand is None and not version and not mode:
+        rprint(ctx.get_help())
+        sys.exit(0)
 
 @cli.command()
 @click.argument('model_name')
@@ -890,8 +924,39 @@ def show(lora_name: str):
 @cli.command()
 def version():
     """Show version information"""
-    rprint("[bold cyan]OllamaDiffuser v1.0.0[/bold cyan]")
-    rprint("Image generation model management tool")
+    print_version()
+    rprint("\n[bold]Features:[/bold]")
+    rprint("• 🚀 Fast Startup with lazy loading architecture")
+    rprint("• 🎛️ ControlNet Support with 10+ control types")
+    rprint("• 🔄 LoRA Integration with dynamic loading")
+    rprint("• 🌐 Multiple Interfaces: CLI, Python API, Web UI, REST API")
+    rprint("• 📦 Easy model management and switching")
+    rprint("• ⚡ Performance optimized with GPU acceleration")
+    
+    rprint("\n[bold]Supported Models:[/bold]")
+    rprint("• FLUX.1-schnell (Apache 2.0, Commercial OK, 4-step generation)")
+    rprint("• FLUX.1-dev (Non-commercial, High quality, 50-step generation)")
+    rprint("• Stable Diffusion 3.5 Medium")
+    rprint("• Stable Diffusion XL Base")
+    rprint("• Stable Diffusion 1.5")
+    rprint("• ControlNet models for SD15 and SDXL")
+    
+    rprint("\n[dim]For help: ollamadiffuser --help[/dim]")
+    rprint("[dim]For diagnostics: ollamadiffuser doctor[/dim]")
+
+@cli.command(name='verify-deps')
+def verify_deps_cmd():
+    """Verify and install missing dependencies"""
+    from .commands import verify_deps
+    ctx = click.Context(verify_deps)
+    ctx.invoke(verify_deps)
+
+@cli.command()
+def doctor():
+    """Run comprehensive system diagnostics"""
+    from .commands import doctor
+    ctx = click.Context(doctor)
+    ctx.invoke(doctor)
 
 if __name__ == '__main__':
     cli() 
