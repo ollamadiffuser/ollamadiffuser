@@ -1,0 +1,130 @@
+{
+  "canny": {
+    "geometric_shapes.png": {
+      "title": "Geometric Shapes",
+      "description": "Perfect for generating architectural elements, logos, or geometric art",
+      "good_for": [
+        "architecture",
+        "logos",
+        "geometric patterns",
+        "modern art"
+      ]
+    },
+    "house_outline.png": {
+      "title": "House Outline",
+      "description": "Great for generating buildings, houses, or architectural scenes",
+      "good_for": [
+        "buildings",
+        "houses",
+        "architecture",
+        "real estate"
+      ]
+    },
+    "portrait_outline.png": {
+      "title": "Portrait Silhouette",
+      "description": "Ideal for generating portraits, characters, or people",
+      "good_for": [
+        "portraits",
+        "characters",
+        "people",
+        "headshots"
+      ]
+    }
+  },
+  "depth": {
+    "radial_gradient.png": {
+      "title": "Radial Depth",
+      "description": "Perfect for centered subjects with depth, like portraits or objects",
+      "good_for": [
+        "portraits",
+        "centered objects",
+        "product photography",
+        "focus effects"
+      ]
+    },
+    "linear_perspective.png": {
+      "title": "Linear Perspective",
+      "description": "Great for landscapes, roads, or scenes with distance",
+      "good_for": [
+        "landscapes",
+        "roads",
+        "horizons",
+        "perspective scenes"
+      ]
+    },
+    "sphere_3d.png": {
+      "title": "3D Sphere",
+      "description": "Ideal for round objects, balls, or 3D elements",
+      "good_for": [
+        "spheres",
+        "balls",
+        "3D objects",
+        "rounded elements"
+      ]
+    }
+  },
+  "openpose": {
+    "standing_pose.png": {
+      "title": "Standing Pose",
+      "description": "Basic standing position, great for portraits and character art",
+      "good_for": [
+        "standing portraits",
+        "character design",
+        "fashion",
+        "formal poses"
+      ]
+    },
+    "running_pose.png": {
+      "title": "Running Pose",
+      "description": "Dynamic action pose, perfect for sports or movement scenes",
+      "good_for": [
+        "sports",
+        "action scenes",
+        "dynamic poses",
+        "movement"
+      ]
+    },
+    "sitting_pose.png": {
+      "title": "Sitting Pose",
+      "description": "Relaxed sitting position, ideal for casual or indoor scenes",
+      "good_for": [
+        "casual portraits",
+        "indoor scenes",
+        "relaxed poses",
+        "sitting figures"
+      ]
+    }
+  },
+  "scribble": {
+    "tree_sketch.png": {
+      "title": "Tree Sketch",
+      "description": "Simple tree drawing, great for nature and landscape scenes",
+      "good_for": [
+        "nature",
+        "landscapes",
+        "trees",
+        "outdoor scenes"
+      ]
+    },
+    "face_sketch.png": {
+      "title": "Face Sketch",
+      "description": "Basic face outline, perfect for portrait generation",
+      "good_for": [
+        "portraits",
+        "faces",
+        "character art",
+        "headshots"
+      ]
+    },
+    "car_sketch.png": {
+      "title": "Car Sketch",
+      "description": "Simple vehicle outline, ideal for automotive or transportation themes",
+      "good_for": [
+        "cars",
+        "vehicles",
+        "transportation",
+        "automotive"
+      ]
+    }
+  }
+}

@@ -397,8 +397,17 @@ def _check_download_status(model_name: str):
             rprint("[blue]🔍 Checking essential model files instead...[/blue]")
             
             # Check for essential model files
-            essential_files = ['model_index.json']
-            essential_dirs = ['transformer', 'text_encoder', 'text_encoder_2', 'tokenizer', 'tokenizer_2', 'vae', 'scheduler']
+            # Determine model type based on repo_id
+            is_controlnet = 'controlnet' in repo_id.lower()
+            
+            if is_controlnet:
+                # ControlNet models have different essential files
+                essential_files = ['config.json']
+                essential_dirs = []  # ControlNet models don't have complex directory structure
+            else:
+                # Regular diffusion models
+                essential_files = ['model_index.json']
+                essential_dirs = ['transformer', 'text_encoder', 'text_encoder_2', 'tokenizer', 'tokenizer_2', 'vae', 'scheduler']
             
             missing_essential = []
             for essential_file in essential_files:

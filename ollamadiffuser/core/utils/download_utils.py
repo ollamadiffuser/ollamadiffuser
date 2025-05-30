@@ -296,8 +296,23 @@ def check_download_integrity(local_dir: str, repo_id: str) -> bool:
         if not local_path.exists():
             return False
         
-        # Check for essential files
-        essential_files = ['model_index.json']
+        # Determine model type based on repo_id
+        is_controlnet = 'controlnet' in repo_id.lower()
+        
+        # Check for essential files based on model type
+        if is_controlnet:
+            # ControlNet models have different essential files
+            essential_files = ['config.json']  # ControlNet models use config.json instead of model_index.json
+            # Also check for model files
+            model_files = ['diffusion_pytorch_model.safetensors', 'diffusion_pytorch_model.bin']
+            has_model_file = any((local_path / model_file).exists() for model_file in model_files)
+            if not has_model_file:
+                logger.warning(f"Missing model file: expected one of {model_files}")
+                return False
+        else:
+            # Regular diffusion models
+            essential_files = ['model_index.json']
+        
         for essential_file in essential_files:
             if not (local_path / essential_file).exists():
                 logger.warning(f"Missing essential file: {essential_file}")
@@ -329,24 +344,29 @@ def check_download_integrity(local_dir: str, repo_id: str) -> bool:
                     logger.warning(f"Empty file detected: {file_path}")
                     return False
         
-        # Check for critical model files
-        critical_dirs = ['transformer', 'text_encoder', 'text_encoder_2', 'tokenizer', 'tokenizer_2']
-        for critical_dir in critical_dirs:
-            dir_path = local_path / critical_dir
-            if dir_path.exists():
-                # Check if directory has any non-empty files
-                has_content = False
-                for file_path in dir_path.rglob('*'):
-                    if file_path.is_file() and file_path.stat().st_size > 0:
-                        # Skip ignored files
-                        should_ignore = any(pattern in str(file_path) for pattern in ignore_patterns)
-                        if not should_ignore:
-                            has_content = True
-                            break
-                
-                if not has_content:
-                    logger.warning(f"Critical directory {critical_dir} appears to be empty or incomplete")
-                    return False
+        # Check for critical model files based on model type
+        if is_controlnet:
+            # ControlNet models are simpler - just need config.json and model weights
+            logger.info("ControlNet model integrity check passed")
+        else:
+            # Check for critical directories in regular diffusion models
+            critical_dirs = ['transformer', 'text_encoder', 'text_encoder_2', 'tokenizer', 'tokenizer_2']
+            for critical_dir in critical_dirs:
+                dir_path = local_path / critical_dir
+                if dir_path.exists():
+                    # Check if directory has any non-empty files
+                    has_content = False
+                    for file_path in dir_path.rglob('*'):
+                        if file_path.is_file() and file_path.stat().st_size > 0:
+                            # Skip ignored files
+                            should_ignore = any(pattern in str(file_path) for pattern in ignore_patterns)
+                            if not should_ignore:
+                                has_content = True
+                                break
+                    
+                    if not has_content:
+                        logger.warning(f"Critical directory {critical_dir} appears to be empty or incomplete")
+                        return False
         
         logger.info("Download integrity check passed")
         return True

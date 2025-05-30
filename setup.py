@@ -29,7 +29,7 @@ setup(
     python_requires=">=3.10",
     install_requires=[
         "torch>=2.1.0",
-        "diffusers>=0.25.0",
+        "diffusers>=0.26.0",
         "transformers>=4.35.0",
         "accelerate>=0.25.0",
         "fastapi>=0.104.0",
@@ -45,7 +45,9 @@ setup(
         "python-multipart>=0.0.0",
         "psutil>=5.9.0",
         "jinja2>=3.0.0",
-        "peft>=0.10.0"
+        "peft>=0.10.0",
+        "controlnet-aux>=0.0.7",
+        "opencv-python>=4.8.0"
     ],
     extras_require={
         "dev": [

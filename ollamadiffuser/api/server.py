@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, File, UploadFile, Form
 from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
@@ -6,6 +6,7 @@ import io
 import logging
 from typing import Dict, Any, Optional
 from pydantic import BaseModel
+from PIL import Image
 
 from ..core.models.manager import model_manager
 from ..core.config.settings import settings
@@ -22,6 +23,10 @@ class GenerateRequest(BaseModel):
     guidance_scale: Optional[float] = None
     width: int = 1024
     height: int = 1024
+    control_image_path: Optional[str] = None  # Path to control image file
+    controlnet_conditioning_scale: float = 1.0
+    control_guidance_start: float = 0.0
+    control_guidance_end: float = 1.0
 
 class LoadModelRequest(BaseModel):
     model_name: str
@@ -234,7 +239,11 @@ def create_app() -> FastAPI:
                 num_inference_steps=request.num_inference_steps,
                 guidance_scale=request.guidance_scale,
                 width=request.width,
-                height=request.height
+                height=request.height,
+                control_image=request.control_image_path,
+                controlnet_conditioning_scale=request.controlnet_conditioning_scale,
+                control_guidance_start=request.control_guidance_start,
+                control_guidance_end=request.control_guidance_end
             )
             
             # Convert PIL image to bytes
@@ -247,6 +256,142 @@ def create_app() -> FastAPI:
         except Exception as e:
             logger.error(f"Image generation failed: {e}")
             raise HTTPException(status_code=500, detail=f"Image generation failed: {str(e)}")
+    
+    @app.post("/api/generate/controlnet")
+    async def generate_image_with_controlnet(
+        prompt: str = Form(...),
+        negative_prompt: str = Form("low quality, bad anatomy, worst quality, low resolution"),
+        num_inference_steps: Optional[int] = Form(None),
+        guidance_scale: Optional[float] = Form(None),
+        width: int = Form(1024),
+        height: int = Form(1024),
+        controlnet_conditioning_scale: float = Form(1.0),
+        control_guidance_start: float = Form(0.0),
+        control_guidance_end: float = Form(1.0),
+        control_image: Optional[UploadFile] = File(None)
+    ):
+        """Generate image with ControlNet using uploaded control image"""
+        # Check if model is loaded
+        if not model_manager.is_model_loaded():
+            raise HTTPException(status_code=400, detail="No model loaded, please load a model first")
+        
+        try:
+            # Get current loaded inference engine
+            engine = model_manager.loaded_model
+            
+            # Check if this is a ControlNet model
+            if not engine.is_controlnet_pipeline:
+                raise HTTPException(status_code=400, detail="Current model is not a ControlNet model")
+            
+            # Process control image if provided
+            control_image_pil = None
+            if control_image:
+                # Read uploaded image
+                image_data = await control_image.read()
+                control_image_pil = Image.open(io.BytesIO(image_data)).convert('RGB')
+            
+            # Generate image
+            image = engine.generate_image(
+                prompt=prompt,
+                negative_prompt=negative_prompt,
+                num_inference_steps=num_inference_steps,
+                guidance_scale=guidance_scale,
+                width=width,
+                height=height,
+                control_image=control_image_pil,
+                controlnet_conditioning_scale=controlnet_conditioning_scale,
+                control_guidance_start=control_guidance_start,
+                control_guidance_end=control_guidance_end
+            )
+            
+            # Convert PIL image to bytes
+            img_byte_arr = io.BytesIO()
+            image.save(img_byte_arr, format='PNG')
+            img_byte_arr = img_byte_arr.getvalue()
+            
+            return Response(content=img_byte_arr, media_type="image/png")
+            
+        except Exception as e:
+            logger.error(f"ControlNet image generation failed: {e}")
+            raise HTTPException(status_code=500, detail=f"ControlNet image generation failed: {str(e)}")
+    
+    @app.post("/api/controlnet/initialize")
+    async def initialize_controlnet():
+        """Initialize ControlNet preprocessors"""
+        try:
+            from ..core.utils.controlnet_preprocessors import controlnet_preprocessor
+            
+            logger.info("Explicitly initializing ControlNet preprocessors...")
+            success = controlnet_preprocessor.initialize(force=True)
+            
+            return {
+                "success": success,
+                "initialized": controlnet_preprocessor.is_initialized(),
+                "available_types": controlnet_preprocessor.get_available_types(),
+                "message": "ControlNet preprocessors initialized successfully" if success else "Failed to initialize ControlNet preprocessors"
+            }
+        except Exception as e:
+            logger.error(f"Failed to initialize ControlNet preprocessors: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to initialize ControlNet preprocessors: {str(e)}")
+    
+    @app.get("/api/controlnet/preprocessors")
+    async def get_controlnet_preprocessors():
+        """Get available ControlNet preprocessors"""
+        try:
+            from ..core.utils.controlnet_preprocessors import controlnet_preprocessor
+            return {
+                "available_types": controlnet_preprocessor.get_available_types(),
+                "available": controlnet_preprocessor.is_available(),
+                "initialized": controlnet_preprocessor.is_initialized(),
+                "description": {
+                    "canny": "Edge detection using Canny algorithm",
+                    "depth": "Depth estimation for depth-based control",
+                    "openpose": "Human pose detection for pose control",
+                    "scribble": "Scribble/sketch detection for artistic control",
+                    "hed": "Holistically-nested edge detection",
+                    "mlsd": "Mobile line segment detection",
+                    "normal": "Surface normal estimation",
+                    "lineart": "Line art detection",
+                    "lineart_anime": "Anime-style line art detection",
+                    "shuffle": "Content shuffling for style transfer"
+                }
+            }
+        except Exception as e:
+            logger.error(f"Failed to get ControlNet preprocessors: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to get ControlNet preprocessors: {str(e)}")
+    
+    @app.post("/api/controlnet/preprocess")
+    async def preprocess_control_image(
+        control_type: str = Form(...),
+        image: UploadFile = File(...)
+    ):
+        """Preprocess image for ControlNet"""
+        try:
+            from ..core.utils.controlnet_preprocessors import controlnet_preprocessor
+            
+            # Initialize ControlNet preprocessors if needed
+            if not controlnet_preprocessor.is_initialized():
+                logger.info("Initializing ControlNet preprocessors for image preprocessing...")
+                if not controlnet_preprocessor.initialize():
+                    raise HTTPException(status_code=500, detail="Failed to initialize ControlNet preprocessors")
+            
+            # Read uploaded image
+            image_data = await image.read()
+            input_image = Image.open(io.BytesIO(image_data)).convert('RGB')
+            
+            # Preprocess image
+            processed_image = controlnet_preprocessor.preprocess(input_image, control_type)
+            
+            # Convert PIL image to bytes
+            img_byte_arr = io.BytesIO()
+            processed_image.save(img_byte_arr, format='PNG')
+            img_byte_arr = img_byte_arr.getvalue()
+            
+            return Response(content=img_byte_arr, media_type="image/png")
+            
+        except Exception as e:
+            logger.error(f"Image preprocessing failed: {e}")
+            raise HTTPException(status_code=500, detail=f"Image preprocessing failed: {str(e)}")
     
     # Health check endpoints
     @app.get("/api/health")

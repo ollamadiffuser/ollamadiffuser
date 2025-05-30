@@ -110,8 +110,8 @@ class ModelManager:
                 "model_type": "sd15",
                 "variant": "fp16",
                 "parameters": {
-                    "num_inference_steps": 20,
-                    "guidance_scale": 7.0
+                    "num_inference_steps": 50,
+                    "guidance_scale": 7.5
                 },
                 "hardware_requirements": {
                     "min_vram_gb": 4,
@@ -121,6 +121,140 @@ class ModelManager:
                     "disk_space_gb": 5,
                     "supported_devices": ["CUDA", "MPS", "CPU"],
                     "performance_notes": "Runs well on most modern GPUs, including GTX 1060+"
+                }
+            },
+
+            # ControlNet models for SD 1.5
+            "controlnet-canny-sd15": {
+                "repo_id": "lllyasviel/sd-controlnet-canny",
+                "model_type": "controlnet_sd15",
+                "base_model": "stable-diffusion-1.5",
+                "controlnet_type": "canny",
+                "variant": "fp16",
+                "parameters": {
+                    "num_inference_steps": 20,
+                    "guidance_scale": 7.0,
+                    "controlnet_conditioning_scale": 1.0
+                },
+                "hardware_requirements": {
+                    "min_vram_gb": 6,
+                    "recommended_vram_gb": 8,
+                    "min_ram_gb": 12,
+                    "recommended_ram_gb": 20,
+                    "disk_space_gb": 7,
+                    "supported_devices": ["CUDA", "MPS", "CPU"],
+                    "performance_notes": "Requires base SD 1.5 model + ControlNet model. Good for edge detection."
+                }
+            },
+
+            "controlnet-depth-sd15": {
+                "repo_id": "lllyasviel/sd-controlnet-depth",
+                "model_type": "controlnet_sd15",
+                "base_model": "stable-diffusion-1.5",
+                "controlnet_type": "depth",
+                "variant": "fp16",
+                "parameters": {
+                    "num_inference_steps": 20,
+                    "guidance_scale": 7.0,
+                    "controlnet_conditioning_scale": 1.0
+                },
+                "hardware_requirements": {
+                    "min_vram_gb": 6,
+                    "recommended_vram_gb": 8,
+                    "min_ram_gb": 12,
+                    "recommended_ram_gb": 20,
+                    "disk_space_gb": 7,
+                    "supported_devices": ["CUDA", "MPS", "CPU"],
+                    "performance_notes": "Requires base SD 1.5 model + ControlNet model. Good for depth-based control."
+                }
+            },
+
+            "controlnet-openpose-sd15": {
+                "repo_id": "lllyasviel/sd-controlnet-openpose",
+                "model_type": "controlnet_sd15",
+                "base_model": "stable-diffusion-1.5",
+                "controlnet_type": "openpose",
+                "variant": "fp16",
+                "parameters": {
+                    "num_inference_steps": 20,
+                    "guidance_scale": 7.0,
+                    "controlnet_conditioning_scale": 1.0
+                },
+                "hardware_requirements": {
+                    "min_vram_gb": 6,
+                    "recommended_vram_gb": 8,
+                    "min_ram_gb": 12,
+                    "recommended_ram_gb": 20,
+                    "disk_space_gb": 7,
+                    "supported_devices": ["CUDA", "MPS", "CPU"],
+                    "performance_notes": "Requires base SD 1.5 model + ControlNet model. Good for pose control."
+                }
+            },
+
+            "controlnet-scribble-sd15": {
+                "repo_id": "lllyasviel/sd-controlnet-scribble",
+                "model_type": "controlnet_sd15",
+                "base_model": "stable-diffusion-1.5",
+                "controlnet_type": "scribble",
+                "variant": "fp16",
+                "parameters": {
+                    "num_inference_steps": 20,
+                    "guidance_scale": 7.0,
+                    "controlnet_conditioning_scale": 1.0
+                },
+                "hardware_requirements": {
+                    "min_vram_gb": 6,
+                    "recommended_vram_gb": 8,
+                    "min_ram_gb": 12,
+                    "recommended_ram_gb": 20,
+                    "disk_space_gb": 7,
+                    "supported_devices": ["CUDA", "MPS", "CPU"],
+                    "performance_notes": "Requires base SD 1.5 model + ControlNet model. Good for sketch-based control."
+                }
+            },
+
+            # ControlNet models for SDXL
+            "controlnet-canny-sdxl": {
+                "repo_id": "diffusers/controlnet-canny-sdxl-1.0",
+                "model_type": "controlnet_sdxl",
+                "base_model": "stable-diffusion-xl-base",
+                "controlnet_type": "canny",
+                "variant": "fp16",
+                "parameters": {
+                    "num_inference_steps": 50,
+                    "guidance_scale": 7.5,
+                    "controlnet_conditioning_scale": 1.0
+                },
+                "hardware_requirements": {
+                    "min_vram_gb": 8,
+                    "recommended_vram_gb": 12,
+                    "min_ram_gb": 16,
+                    "recommended_ram_gb": 28,
+                    "disk_space_gb": 10,
+                    "supported_devices": ["CUDA", "MPS", "CPU"],
+                    "performance_notes": "Requires base SDXL model + ControlNet model. Good for edge detection with SDXL quality."
+                }
+            },
+
+            "controlnet-depth-sdxl": {
+                "repo_id": "diffusers/controlnet-depth-sdxl-1.0",
+                "model_type": "controlnet_sdxl",
+                "base_model": "stable-diffusion-xl-base",
+                "controlnet_type": "depth",
+                "variant": "fp16",
+                "parameters": {
+                    "num_inference_steps": 50,
+                    "guidance_scale": 7.5,
+                    "controlnet_conditioning_scale": 1.0
+                },
+                "hardware_requirements": {
+                    "min_vram_gb": 8,
+                    "recommended_vram_gb": 12,
+                    "min_ram_gb": 16,
+                    "recommended_ram_gb": 28,
+                    "disk_space_gb": 10,
+                    "supported_devices": ["CUDA", "MPS", "CPU"],
+                    "performance_notes": "Requires base SDXL model + ControlNet model. Good for depth-based control with SDXL quality."
                 }
             }
         }

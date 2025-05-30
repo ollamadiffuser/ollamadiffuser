@@ -6,12 +6,16 @@ from diffusers import (
     StableDiffusionPipeline, 
     StableDiffusionXLPipeline,
     StableDiffusion3Pipeline,
-    FluxPipeline
+    FluxPipeline,
+    StableDiffusionControlNetPipeline,
+    StableDiffusionXLControlNetPipeline,
+    ControlNetModel
 )
 from PIL import Image
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Union
 from pathlib import Path
 from ..config.settings import ModelConfig
+from ..utils.controlnet_preprocessors import controlnet_preprocessor
 
 # Global safety checker disabling
 os.environ["DISABLE_NSFW_CHECKER"] = "1"
@@ -28,6 +32,8 @@ class InferenceEngine:
         self.tokenizer = None
         self.max_token_limit = 77
         self.current_lora = None  # Track current LoRA state
+        self.controlnet = None  # Track ControlNet model
+        self.is_controlnet_pipeline = False  # Track if current pipeline is ControlNet
         
     def _get_device(self) -> str:
         """Automatically detect available device"""
@@ -56,7 +62,9 @@ class InferenceEngine:
             "sd15": StableDiffusionPipeline,
             "sdxl": StableDiffusionXLPipeline,
             "sd3": StableDiffusion3Pipeline,
-            "flux": FluxPipeline
+            "flux": FluxPipeline,
+            "controlnet_sd15": StableDiffusionControlNetPipeline,
+            "controlnet_sdxl": StableDiffusionXLControlNetPipeline,
         }
         return pipeline_map.get(model_type)
     
@@ -88,6 +96,13 @@ class InferenceEngine:
                 logger.error(f"Unsupported model type: {model_config.model_type}")
                 return False
             
+            # Check if this is a ControlNet model
+            self.is_controlnet_pipeline = model_config.model_type.startswith("controlnet_")
+            
+            # Handle ControlNet models
+            if self.is_controlnet_pipeline:
+                return self._load_controlnet_model(model_config, pipeline_class, {})
+            
             # Set loading parameters
             load_kwargs = {}
             if model_config.variant == "fp16":
@@ -113,7 +128,7 @@ class InferenceEngine:
                     logger.info("Using bfloat16 for FLUX model")
             
             # Disable safety checker for SD 1.5 to prevent false NSFW detections
-            if model_config.model_type == "sd15":
+            if model_config.model_type == "sd15" or model_config.model_type == "sdxl":
                 load_kwargs["safety_checker"] = None
                 load_kwargs["requires_safety_checker"] = False
                 load_kwargs["feature_extractor"] = None
@@ -184,7 +199,7 @@ class InferenceEngine:
                             logger.debug(f"Sequential CPU offload not available: {e}")
             
             # Additional safety checker disabling for SD 1.5 (in case the above didn't work)
-            if model_config.model_type == "sd15":
+            if model_config.model_type == "sd15" or model_config.model_type == "sdxl":
                 if hasattr(self.pipeline, 'safety_checker'):
                     self.pipeline.safety_checker = None
                 if hasattr(self.pipeline, 'feature_extractor'):
@@ -240,6 +255,97 @@ class InferenceEngine:
             
         except Exception as e:
             logger.error(f"Failed to load model: {e}")
+            return False
+    
+    def _load_controlnet_model(self, model_config: ModelConfig, pipeline_class, load_kwargs: dict) -> bool:
+        """Load ControlNet model with base model"""
+        try:
+            # Get base model info
+            base_model_name = getattr(model_config, 'base_model', None)
+            if not base_model_name:
+                # Try to extract from model registry
+                from ..models.manager import model_manager
+                model_info = model_manager.get_model_info(model_config.name)
+                if model_info and 'base_model' in model_info:
+                    base_model_name = model_info['base_model']
+                else:
+                    logger.error(f"No base model specified for ControlNet model: {model_config.name}")
+                    return False
+            
+            # Check if base model is installed
+            from ..models.manager import model_manager
+            if not model_manager.is_model_installed(base_model_name):
+                logger.error(f"Base model '{base_model_name}' not installed. Please install it first.")
+                return False
+            
+            # Get base model config
+            from ..config.settings import settings
+            base_model_config = settings.models[base_model_name]
+            
+            # Set loading parameters based on variant
+            if model_config.variant == "fp16":
+                load_kwargs["torch_dtype"] = torch.float16
+                load_kwargs["variant"] = "fp16"
+            elif model_config.variant == "bf16":
+                load_kwargs["torch_dtype"] = torch.bfloat16
+            
+            # Handle device-specific optimizations
+            if self.device == "cpu" or self.device == "mps":
+                load_kwargs["torch_dtype"] = torch.float32
+                load_kwargs.pop("variant", None)
+                logger.info(f"Using float32 for {self.device} inference to improve stability")
+            
+            # Disable safety checker
+            load_kwargs["safety_checker"] = None
+            load_kwargs["requires_safety_checker"] = False
+            load_kwargs["feature_extractor"] = None
+            
+            # Load ControlNet model
+            logger.info(f"Loading ControlNet model from: {model_config.path}")
+            self.controlnet = ControlNetModel.from_pretrained(
+                model_config.path,
+                torch_dtype=load_kwargs.get("torch_dtype", torch.float32)
+            )
+            
+            # Load pipeline with ControlNet and base model
+            logger.info(f"Loading ControlNet pipeline with base model: {base_model_name}")
+            self.pipeline = pipeline_class.from_pretrained(
+                base_model_config.path,
+                controlnet=self.controlnet,
+                **load_kwargs
+            )
+            
+            # Move to device
+            try:
+                self.pipeline = self.pipeline.to(self.device)
+                self.controlnet = self.controlnet.to(self.device)
+                logger.info(f"ControlNet pipeline moved to {self.device}")
+            except Exception as e:
+                logger.warning(f"Failed to move ControlNet pipeline to {self.device}: {e}")
+                if self.device != "cpu":
+                    logger.info("Falling back to CPU")
+                    self.device = "cpu"
+                    self.pipeline = self.pipeline.to("cpu")
+                    self.controlnet = self.controlnet.to("cpu")
+            
+            # Enable memory optimizations
+            if hasattr(self.pipeline, 'enable_attention_slicing'):
+                self.pipeline.enable_attention_slicing()
+                logger.info("Enabled attention slicing for ControlNet pipeline")
+            
+            # Apply additional optimizations
+            self._apply_optimizations()
+            
+            # Set tokenizer
+            if hasattr(self.pipeline, 'tokenizer'):
+                self.tokenizer = self.pipeline.tokenizer
+            
+            self.model_config = model_config
+            logger.info(f"ControlNet model {model_config.name} loaded successfully")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to load ControlNet model: {e}")
             return False
     
     def _load_lora(self, model_config: ModelConfig):
@@ -333,10 +439,22 @@ class InferenceEngine:
                       guidance_scale: Optional[float] = None,
                       width: int = 1024,
                       height: int = 1024,
+                      control_image: Optional[Union[Image.Image, str]] = None,
+                      controlnet_conditioning_scale: float = 1.0,
+                      control_guidance_start: float = 0.0,
+                      control_guidance_end: float = 1.0,
                       **kwargs) -> Image.Image:
         """Generate image"""
         if not self.pipeline:
             raise RuntimeError("Model not loaded")
+        
+        # Handle ControlNet-specific logic
+        if self.is_controlnet_pipeline:
+            if control_image is None:
+                raise ValueError("ControlNet model requires a control image")
+            
+            # Process control image
+            control_image = self._prepare_control_image(control_image, width, height)
         
         # Use model default parameters
         if num_inference_steps is None:
@@ -361,8 +479,19 @@ class InferenceEngine:
                 **kwargs
             }
             
+            # Add ControlNet parameters if this is a ControlNet pipeline
+            if self.is_controlnet_pipeline and control_image is not None:
+                generation_kwargs.update({
+                    "image": control_image,
+                    "controlnet_conditioning_scale": controlnet_conditioning_scale,
+                    "control_guidance_start": control_guidance_start,
+                    "control_guidance_end": control_guidance_end
+                })
+                logger.info(f"ControlNet parameters: conditioning_scale={controlnet_conditioning_scale}, "
+                           f"guidance_start={control_guidance_start}, guidance_end={control_guidance_end}")
+            
             # Add size parameters based on model type
-            if self.model_config.model_type in ["sdxl", "sd3", "flux"]:
+            if self.model_config.model_type in ["sdxl", "sd3", "flux", "controlnet_sdxl"]:
                 generation_kwargs.update({
                     "width": width,
                     "height": height
@@ -413,8 +542,8 @@ class InferenceEngine:
                         
                         logger.info("🍎 MPS inference - should be faster than CPU but slower than CUDA")
                     
-            elif self.model_config.model_type == "sd15":
-                # SD 1.5 works best with 512x512, adjust if different sizes requested
+            elif self.model_config.model_type in ["sd15", "controlnet_sd15"]:
+                # SD 1.5 and ControlNet SD 1.5 work best with 512x512, adjust if different sizes requested
                 if width != 1024 or height != 1024:
                     generation_kwargs.update({
                         "width": width,
@@ -451,7 +580,7 @@ class InferenceEngine:
                     logger.info("Applied MPS-specific optimizations")
             
             # For SD 1.5, use manual pipeline execution to completely bypass safety checker
-            if self.model_config.model_type == "sd15":
+            if self.model_config.model_type == "sd15" and not self.is_controlnet_pipeline:
                 logger.info("Using manual pipeline execution for SD 1.5 to bypass safety checker")
                 try:
                     # Manual pipeline execution with safety checks disabled
@@ -816,6 +945,48 @@ class InferenceEngine:
         except Exception as e:
             logger.warning(f"Failed to validate image data: {e}, returning original image")
             return image
+    
+    def _prepare_control_image(self, control_image: Union[Image.Image, str], width: int, height: int) -> Image.Image:
+        """Prepare control image for ControlNet"""
+        try:
+            # Initialize ControlNet preprocessors if needed
+            if not controlnet_preprocessor.is_initialized():
+                logger.info("Initializing ControlNet preprocessors for image processing...")
+                if not controlnet_preprocessor.initialize():
+                    logger.error("Failed to initialize ControlNet preprocessors")
+                    # Continue with basic processing
+            
+            # Load image if path is provided
+            if isinstance(control_image, str):
+                control_image = Image.open(control_image).convert('RGB')
+            elif not isinstance(control_image, Image.Image):
+                raise ValueError("Control image must be PIL Image or file path")
+            
+            # Ensure image is RGB
+            if control_image.mode != 'RGB':
+                control_image = control_image.convert('RGB')
+            
+            # Get ControlNet type from model config
+            from ..models.manager import model_manager
+            model_info = model_manager.get_model_info(self.model_config.name)
+            controlnet_type = model_info.get('controlnet_type', 'canny') if model_info else 'canny'
+            
+            # Preprocess the control image based on ControlNet type
+            logger.info(f"Preprocessing control image for {controlnet_type} ControlNet")
+            processed_image = controlnet_preprocessor.preprocess(control_image, controlnet_type)
+            
+            # Resize to match generation size
+            processed_image = controlnet_preprocessor.resize_for_controlnet(processed_image, width, height)
+            
+            logger.info(f"Control image prepared: {processed_image.size}")
+            return processed_image
+            
+        except Exception as e:
+            logger.error(f"Failed to prepare control image: {e}")
+            # Return resized original image as fallback
+            if isinstance(control_image, str):
+                control_image = Image.open(control_image).convert('RGB')
+            return controlnet_preprocessor.resize_for_controlnet(control_image, width, height)
     
     def _create_error_image(self, error_msg: str, prompt: str) -> Image.Image:
         """Create error message image"""
