@@ -943,6 +943,7 @@ def version():
     
     rprint("\n[dim]For help: ollamadiffuser --help[/dim]")
     rprint("[dim]For diagnostics: ollamadiffuser doctor[/dim]")
+    rprint("[dim]For ControlNet samples: ollamadiffuser create-samples[/dim]")
 
 @cli.command(name='verify-deps')
 def verify_deps_cmd():
@@ -957,6 +958,14 @@ def doctor():
     from .commands import doctor
     ctx = click.Context(doctor)
     ctx.invoke(doctor)
+
+@cli.command(name='create-samples')
+@click.option('--force', is_flag=True, help='Force recreation of all samples even if they exist')
+def create_samples_cmd(force):
+    """Create ControlNet sample images for the Web UI"""
+    from .commands import create_samples
+    ctx = click.Context(create_samples)
+    ctx.invoke(create_samples, force=force)
 
 if __name__ == '__main__':
     cli() 

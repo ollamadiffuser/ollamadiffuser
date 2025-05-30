@@ -130,4 +130,68 @@ def doctor():
     # Run dependency check
     console.print("\n" + "="*50)
     ctx = click.Context(verify_deps)
-    ctx.invoke(verify_deps) 
+    ctx.invoke(verify_deps)
+
+@click.command()
+@click.option('--force', is_flag=True, help='Force recreation of all samples even if they exist')
+def create_samples(force):
+    """Create ControlNet sample images for the Web UI"""
+    console.print("\n🎨 [bold blue]Creating ControlNet Sample Images[/bold blue]")
+    
+    try:
+        from pathlib import Path
+        from ..ui.web import ensure_samples_exist
+        
+        # Get samples directory path
+        samples_dir = Path(__file__).parent.parent / "ui" / "samples"
+        
+        if force:
+            console.print("🗑️ Removing existing samples (force mode)")
+            import shutil
+            if samples_dir.exists():
+                shutil.rmtree(samples_dir)
+        
+        console.print(f"📁 Samples directory: {samples_dir}")
+        
+        # Create samples
+        ensure_samples_exist(samples_dir)
+        
+        if samples_dir.exists():
+            # Count created samples
+            sample_count = 0
+            for sample_type in ['canny', 'depth', 'openpose', 'scribble']:
+                type_dir = samples_dir / sample_type
+                if type_dir.exists():
+                    sample_count += len(list(type_dir.glob('*.png')))
+            
+            console.print(f"\n✅ [bold green]Successfully created {sample_count} sample images![/bold green]")
+            console.print(f"📂 Samples saved to: {samples_dir}")
+            
+            # Show sample types
+            table = Table(title="Created Sample Types")
+            table.add_column("Type", style="cyan")
+            table.add_column("Count", style="white")
+            table.add_column("Description", style="green")
+            
+            descriptions = {
+                'canny': 'Edge detection control',
+                'depth': 'Depth map control',
+                'openpose': 'Pose estimation control',
+                'scribble': 'Sketch/scribble control'
+            }
+            
+            for sample_type in ['canny', 'depth', 'openpose', 'scribble']:
+                type_dir = samples_dir / sample_type
+                if type_dir.exists():
+                    count = len(list(type_dir.glob('*.png')))
+                    table.add_row(sample_type.title(), str(count), descriptions.get(sample_type, ''))
+            
+            console.print(table)
+            console.print("\n💡 These samples will appear in the Web UI for easy ControlNet testing!")
+        else:
+            console.print("❌ [bold red]Failed to create samples directory[/bold red]")
+            
+    except Exception as e:
+        console.print(f"❌ [bold red]Error creating samples: {e}[/bold red]")
+        import traceback
+        console.print(f"[dim]{traceback.format_exc()}[/dim]") 

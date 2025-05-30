@@ -4,5 +4,6 @@ include CHANGELOG.md
 include requirements.txt
 recursive-include ollamadiffuser/ui/templates *.html
 recursive-include ollamadiffuser/ui/static *
+recursive-include ollamadiffuser/ui/samples *
 recursive-exclude * __pycache__
 recursive-exclude * *.py[co] 
