@@ -31,6 +31,13 @@ def verify_deps():
     except ImportError:
         deps_status['controlnet-aux'] = "❌ Missing"
     
+    # MediaPipe check (optional but recommended for full ControlNet functionality)
+    try:
+        import mediapipe
+        deps_status['mediapipe'] = f"✅ Installed (v{mediapipe.__version__})"
+    except ImportError:
+        deps_status['mediapipe'] = "⚠️ Optional (recommended for face/pose ControlNet)"
+    
     # Torch check
     try:
         import torch
@@ -51,15 +58,18 @@ def verify_deps():
     table.add_column("Status", style="white")
     
     missing_deps = []
+    optional_deps = []
     for dep, status in deps_status.items():
         table.add_row(dep, status)
         if "❌ Missing" in status:
             missing_deps.append(dep)
+        elif "⚠️ Optional" in status:
+            optional_deps.append(dep)
     
     console.print(table)
     
     if missing_deps:
-        console.print(f"\n⚠️  [bold yellow]{len(missing_deps)} dependencies are missing[/bold yellow]")
+        console.print(f"\n⚠️  [bold yellow]{len(missing_deps)} required dependencies are missing[/bold yellow]")
         
         if click.confirm("\nWould you like to install missing dependencies?"):
             for dep in missing_deps:
@@ -82,7 +92,23 @@ def verify_deps():
                     console.print(f"❌ Failed to install {dep}: {e}")
         
         console.print("\n🔄 Re-run 'ollamadiffuser verify-deps' to check status")
-    else:
+    
+    if optional_deps:
+        console.print(f"\n💡 [bold blue]{len(optional_deps)} optional dependencies available for enhanced functionality[/bold blue]")
+        
+        if click.confirm("\nWould you like to install optional dependencies for full ControlNet support?"):
+            for dep in optional_deps:
+                console.print(f"\n📦 Installing {dep}...")
+                
+                try:
+                    subprocess.check_call([
+                        sys.executable, "-m", "pip", "install", dep
+                    ])
+                    console.print(f"✅ {dep} installed successfully")
+                except subprocess.CalledProcessError as e:
+                    console.print(f"❌ Failed to install {dep}: {e}")
+    
+    if not missing_deps and not optional_deps:
         console.print("\n🎉 [bold green]All dependencies are installed![/bold green]")
     
     # Check ControlNet preprocessors
@@ -96,6 +122,10 @@ def verify_deps():
             console.print("⚠️  ControlNet preprocessors not fully available")
     except Exception as e:
         console.print(f"❌ Error testing preprocessors: {e}")
+    
+    # Show warning suppression tip
+    console.print("\n💡 [bold blue]Tip:[/bold blue] To suppress harmless import warnings, run:")
+    console.print("   [cyan]export PYTHONWARNINGS=\"ignore::UserWarning,ignore::FutureWarning\"[/cyan]")
 
 @click.command()
 def doctor():
