@@ -391,6 +391,13 @@
                 {% if is_controlnet_model %}
                 <span style="color: #7c3aed; font-weight: bold; margin-left: 8px;">🎛️ ControlNet ({{ controlnet_type }})</span>
                 {% endif %}
+                {% if model_parameters %}
+                <div style="margin-top: 5px; font-size: 12px; color: #6b7280;">
+                    📋 Recommended: 
+                    {% if model_parameters.num_inference_steps %}Steps: {{ model_parameters.num_inference_steps }}{% endif %}
+                    {% if model_parameters.guidance_scale %} | Guidance: {{ model_parameters.guidance_scale }}{% endif %}
+                </div>
+                {% endif %}
             </div>
             {% endif %}
             <div class="status-item">
@@ -441,7 +448,7 @@
         </div>
         
         <div class="model-management">
-            <h3>🔄 LoRA Management</h3>
+            <h3>🔄 LoRA Management(style, content, or identity)</h3>
             
             <!-- Download LoRA Section -->
             <form method="post" action="/pull_lora" style="margin-bottom: 15px;">
@@ -509,6 +516,39 @@
             <div class="form-section">
                 <h2>Image Generation</h2>
                 
+                {% if model_loaded and model_parameters %}
+                <div style="background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+                    <h4 style="margin: 0 0 10px 0; color: #0369a1; font-size: 14px; font-weight: 600;">
+                        📋 Recommended Settings for {{ current_model }}
+                    </h4>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; font-size: 13px;">
+                        {% if model_parameters.get('num_inference_steps') %}
+                        <div style="background: white; padding: 8px; border-radius: 4px;">
+                            <strong>Inference Steps:</strong> {{ model_parameters.num_inference_steps }}
+                        </div>
+                        {% endif %}
+                        {% if model_parameters.get('guidance_scale') %}
+                        <div style="background: white; padding: 8px; border-radius: 4px;">
+                            <strong>Guidance Scale:</strong> {{ model_parameters.guidance_scale }}
+                        </div>
+                        {% endif %}
+                        {% if model_parameters.get('width') %}
+                        <div style="background: white; padding: 8px; border-radius: 4px;">
+                            <strong>Width:</strong> {{ model_parameters.width }}px
+                        </div>
+                        {% endif %}
+                        {% if model_parameters.get('height') %}
+                        <div style="background: white; padding: 8px; border-radius: 4px;">
+                            <strong>Height:</strong> {{ model_parameters.height }}px
+                        </div>
+                        {% endif %}
+                    </div>
+                    <p style="margin: 10px 0 0 0; color: #0369a1; font-size: 12px;">
+                        💡 These values are automatically applied to the form below. You can adjust them as needed.
+                    </p>
+                </div>
+                {% endif %}
+                
                 {% if not model_loaded %}
                 <div class="model-info">
                     <strong>⚠️ Note:</strong> Please first load a model in the model management area above, or use CLI: <code>ollamadiffuser load model-name</code>
@@ -541,22 +581,34 @@
                     <div class="form-row">
                         <div class="form-group">
                             <label for="width">Width</label>
-                            <input type="number" name="width" id="width" value="{{ width or 1024 }}" min="512" max="2048" step="64">
+                            <input type="number" name="width" id="width" value="{{ width or model_parameters.get('width', 1024) }}" min="512" max="2048" step="64">
+                            {% if model_parameters.get('width') %}
+                            <small class="help-text">📋 Recommended for {{ current_model }}: {{ model_parameters.width }}px</small>
+                            {% endif %}
                         </div>
                         <div class="form-group">
                             <label for="height">Height</label>
-                            <input type="number" name="height" id="height" value="{{ height or 1024 }}" min="512" max="2048" step="64">
+                            <input type="number" name="height" id="height" value="{{ height or model_parameters.get('height', 1024) }}" min="512" max="2048" step="64">
+                            {% if model_parameters.get('height') %}
+                            <small class="help-text">📋 Recommended for {{ current_model }}: {{ model_parameters.height }}px</small>
+                            {% endif %}
                         </div>
                     </div>
                     
                     <div class="form-row">
                         <div class="form-group">
                             <label for="num_inference_steps">Inference Steps</label>
-                            <input type="number" name="num_inference_steps" id="num_inference_steps" value="{{ num_inference_steps or 28 }}" min="1" max="100">
+                            <input type="number" name="num_inference_steps" id="num_inference_steps" value="{{ num_inference_steps or model_parameters.get('num_inference_steps', 28) }}" min="1" max="100">
+                            {% if model_parameters.get('num_inference_steps') %}
+                            <small class="help-text">📋 Recommended for {{ current_model }}: {{ model_parameters.num_inference_steps }}</small>
+                            {% endif %}
                         </div>
                         <div class="form-group">
                             <label for="guidance_scale">Guidance Scale</label>
-                            <input type="number" name="guidance_scale" id="guidance_scale" value="{{ guidance_scale or 3.5 }}" min="0" max="20" step="0.1">
+                            <input type="number" name="guidance_scale" id="guidance_scale" value="{{ guidance_scale or model_parameters.get('guidance_scale', 3.5) }}" min="0" max="20" step="0.1">
+                            {% if model_parameters.get('guidance_scale') %}
+                            <small class="help-text">📋 Recommended for {{ current_model }}: {{ model_parameters.guidance_scale }}</small>
+                            {% endif %}
                         </div>
                     </div>
                     
@@ -564,7 +616,7 @@
                     {% if is_controlnet_model %}
                     <div class="controlnet-section">
                         <h3 class="controlnet-title">
-                            🎛️ ControlNet Controls ({{ controlnet_type|title }})
+                            🎛️ ControlNet Controls(structure, composition, and spatial layout) ({{ controlnet_type|title }})
                         </h3>
                         
                         {% if not controlnet_initialized %}

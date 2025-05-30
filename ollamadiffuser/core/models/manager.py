@@ -132,8 +132,8 @@ class ModelManager:
                 "controlnet_type": "canny",
                 "variant": "fp16",
                 "parameters": {
-                    "num_inference_steps": 20,
-                    "guidance_scale": 7.0,
+                    "num_inference_steps": 50,
+                    "guidance_scale": 7.5,
                     "controlnet_conditioning_scale": 1.0
                 },
                 "hardware_requirements": {
@@ -154,8 +154,8 @@ class ModelManager:
                 "controlnet_type": "depth",
                 "variant": "fp16",
                 "parameters": {
-                    "num_inference_steps": 20,
-                    "guidance_scale": 7.0,
+                    "num_inference_steps": 50,
+                    "guidance_scale": 7.5,
                     "controlnet_conditioning_scale": 1.0
                 },
                 "hardware_requirements": {
@@ -176,8 +176,8 @@ class ModelManager:
                 "controlnet_type": "openpose",
                 "variant": "fp16",
                 "parameters": {
-                    "num_inference_steps": 20,
-                    "guidance_scale": 7.0,
+                    "num_inference_steps": 50,
+                    "guidance_scale": 7.5,
                     "controlnet_conditioning_scale": 1.0
                 },
                 "hardware_requirements": {
@@ -198,8 +198,8 @@ class ModelManager:
                 "controlnet_type": "scribble",
                 "variant": "fp16",
                 "parameters": {
-                    "num_inference_steps": 20,
-                    "guidance_scale": 7.0,
+                    "num_inference_steps": 50,
+                    "guidance_scale": 7.5,
                     "controlnet_conditioning_scale": 1.0
                 },
                 "hardware_requirements": {

@@ -47,6 +47,7 @@ def create_ui_app() -> FastAPI:
         # Check if current model is ControlNet
         is_controlnet_model = False
         controlnet_type = None
+        model_parameters = {}
         if current_model and model_loaded:
             engine = model_manager.loaded_model
             if hasattr(engine, 'is_controlnet_pipeline'):
@@ -55,6 +56,11 @@ def create_ui_app() -> FastAPI:
                     # Get ControlNet type from model info
                     model_info = model_manager.get_model_info(current_model)
                     controlnet_type = model_info.get('controlnet_type', 'canny') if model_info else 'canny'
+            
+            # Get model parameters for current model
+            model_info = model_manager.get_model_info(current_model)
+            if model_info and 'parameters' in model_info:
+                model_parameters = model_info['parameters']
         
         # Get available ControlNet preprocessors (without initializing)
         available_preprocessors = controlnet_preprocessor.get_available_types()
@@ -82,7 +88,8 @@ def create_ui_app() -> FastAPI:
             "available_preprocessors": available_preprocessors,
             "controlnet_available": controlnet_preprocessor.is_available(),
             "controlnet_initialized": controlnet_preprocessor.is_initialized(),
-            "sample_metadata": sample_metadata
+            "sample_metadata": sample_metadata,
+            "model_parameters": model_parameters
         }
     
     @app.get("/", response_class=HTMLResponse)
