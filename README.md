@@ -1,6 +1,16 @@
 # OllamaDiffuser 🎨
 
-A powerful, user-friendly image generation tool that brings together multiple Stable Diffusion models with seamless model management, LoRA support, and advanced ControlNet capabilities.
+[![PyPI version](https://badge.fury.io/py/ollamadiffuser.svg)](https://badge.fury.io/py/ollamadiffuser)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+
+## Local AI Image Generation with OllamaDiffuser
+
+**OllamaDiffuser** simplifies local deployment of **Stable Diffusion**, **FLUX.1**, and other AI image generation models. An intuitive **local SD** tool inspired by **Ollama's** simplicity - perfect for **local diffuser** workflows with CLI, web UI, and LoRA support.
+
+🌐 **Website**: [ollamadiffuser.com](https://www.ollamadiffuser.com/) | 📦 **PyPI**: [pypi.org/project/ollamadiffuser](https://pypi.org/project/ollamadiffuser/)
+
+---
 
 ## ✨ Features
 
@@ -12,9 +22,25 @@ A powerful, user-friendly image generation tool that brings together multiple St
 - **⚡ Performance Optimized**: Memory-efficient with GPU acceleration
 - **🎨 Professional Results**: High-quality image generation with fine-tuned control
 
-## 🏃 Quick Start
+## 🚀 Quick Start
 
-### Installation
+### Option 1: Install from PyPI (Recommended)
+```bash
+# Install from PyPI
+pip install ollamadiffuser
+
+# Pull and run a model (4-command setup)
+ollamadiffuser pull flux.1-schnell
+ollamadiffuser run flux.1-schnell
+
+# Generate via API
+curl -X POST http://localhost:8000/api/generate \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "A beautiful sunset"}' \
+  --output image.png
+```
+
+### Option 2: Development Installation
 ```bash
 # Clone the repository
 git clone https://github.com/yourusername/ollamadiffuser.git
@@ -52,6 +78,26 @@ curl -X POST http://localhost:8000/api/generate/controlnet \
   -F "prompt=a beautiful landscape" \
   -F "control_image=@your_image.jpg"
 ```
+
+---
+
+## 🎯 Supported Models
+
+Choose from a variety of state-of-the-art image generation models:
+
+| Model | License | Quality | Speed | Commercial Use |
+|-------|---------|---------|-------|----------------|
+| **FLUX.1-schnell** | Apache 2.0 | High | **4 steps** (12x faster) | ✅ Commercial OK |
+| **FLUX.1-dev** | Non-commercial | High | 50 steps | ❌ Non-commercial |
+| **Stable Diffusion 3.5** | CreativeML | Medium | 28 steps | ⚠️ Check License |
+| **Stable Diffusion 1.5** | CreativeML | Fast | Lightweight | ⚠️ Check License |
+
+### Why Choose FLUX.1-schnell?
+- **Apache 2.0 license** - Perfect for commercial use
+- **4-step generation** - Lightning fast results  
+- **Commercial OK** - Use in your business
+
+---
 
 ## 🎛️ ControlNet Features
 
@@ -245,11 +291,12 @@ with open("control.jpg", "rb") as f:
     )
 ```
 
-## 📚 Model-Specific Guides
+## 📚 Documentation & Guides
 
 - **[ControlNet Guide](CONTROLNET_GUIDE.md)**: Comprehensive ControlNet usage and examples
 - **[LoRA Guide](LORA_GUIDE.md)**: LoRA management and best practices
 - **[API Reference](API_REFERENCE.md)**: Complete API documentation
+- **[Website Documentation](https://www.ollamadiffuser.com/)**: Complete tutorials and guides
 
 ## 🚀 Performance & Hardware
 
@@ -335,6 +382,21 @@ flake8 ollamadiffuser/
 black ollamadiffuser/
 ```
 
+## 🤝 Community & Support
+
+### Quick Actions
+
+- **🐛 [Report a Bug](https://github.com/ollamadiffuser/ollamadiffuser/issues)** - Found an issue? Let us know
+- **💡 [Feature Request](https://github.com/ollamadiffuser/ollamadiffuser/issues)** - Have an idea? Share it with us  
+- **💬 [Join Discussions](https://github.com/ollamadiffuser/ollamadiffuser/discussions)** - Community discussion
+- **⭐ [Star on GitHub](https://github.com/ollamadiffuser/ollamadiffuser)** - Show your support
+
+### Community Driven
+
+OllamaDiffuser is an open-source project that thrives on community feedback. Every suggestion, bug report, and contribution helps make it better for everyone.
+
+**Open Source** • **Community Driven** • **Actively Maintained**
+
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
@@ -354,4 +416,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Happy generating! 🎨✨** 
+**Ready to get started?** Install from PyPI: `pip install ollamadiffuser` or visit [ollamadiffuser.com](https://www.ollamadiffuser.com/) 🎨✨ 

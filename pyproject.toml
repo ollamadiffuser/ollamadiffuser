@@ -4,17 +4,18 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ollamadiffuser"
-version = "1.0.0"
+version = "1.1.0"
 authors = [
     {name = "OllamaDiffuser Team", email = "ollamadiffuser@gmail.com"}
 ]
-description = "🎨 Ollama-like image generation model management tool with LoRA support"
+description = "🎨 Local AI Image Generation with Ollama-style CLI for Stable Diffusion, FLUX.1, and LoRA support"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.10"
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
+    "Intended Audience :: End Users/Desktop",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
@@ -24,8 +25,24 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Multimedia :: Graphics",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Environment :: Console",
+    "Environment :: Web Environment",
 ]
-keywords = ["diffusion", "image-generation", "ai", "machine-learning", "lora", "ollama"]
+keywords = [
+    "diffusion", 
+    "image-generation", 
+    "ai", 
+    "machine-learning", 
+    "lora", 
+    "ollama", 
+    "stable-diffusion",
+    "flux",
+    "local-ai",
+    "controlnet",
+    "web-ui",
+    "cli"
+]
 dependencies = [
     "torch>=2.1.0",
     "diffusers>=0.26.0",
@@ -62,9 +79,14 @@ dev = [
 ollamadiffuser = "ollamadiffuser.__main__:main"
 
 [project.urls]
-Homepage = "https://github.com/ollamadiffuser/ollamadiffuser"
+Homepage = "https://www.ollamadiffuser.com/"
+Website = "https://www.ollamadiffuser.com/"
 Repository = "https://github.com/ollamadiffuser/ollamadiffuser"
 Issues = "https://github.com/ollamadiffuser/ollamadiffuser/issues"
+Documentation = "https://www.ollamadiffuser.com/"
+"Bug Reports" = "https://github.com/ollamadiffuser/ollamadiffuser/issues"
+"Feature Requests" = "https://github.com/ollamadiffuser/ollamadiffuser/issues"
+"Source Code" = "https://github.com/ollamadiffuser/ollamadiffuser"
 
 [tool.setuptools]
 include-package-data = true
