@@ -327,23 +327,23 @@
         .sample-item {
             cursor: pointer;
             border: 2px solid #e5e7eb;
-            border-radius: 8px;
-            padding: 10px;
+            border-radius: 6px;
+            padding: 8px;
             background: white;
             transition: all 0.2s;
         }
         
         .sample-item:hover {
             border-color: #7c3aed;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 4px 8px -2px rgba(0, 0, 0, 0.1);
         }
         
         .sample-item img {
             width: 100%;
-            height: 120px;
+            height: 100px;
             object-fit: cover;
-            border-radius: 6px;
-            margin-bottom: 8px;
+            border-radius: 4px;
+            margin-bottom: 6px;
         }
         
         .sample-item div {
@@ -370,6 +370,31 @@
             padding: 2px 6px;
             border-radius: 12px;
             font-size: 10px;
+        }
+        
+        .control-tab {
+            padding: 8px 12px;
+            border: none;
+            background: #f8fafc;
+            border-bottom: 2px solid transparent;
+            cursor: pointer;
+            font-size: 13px;
+            color: #6b7280;
+            transition: all 0.2s;
+        }
+        
+        .control-tab:hover {
+            background: #e2e8f0;
+        }
+        
+        .active-tab {
+            border-bottom: 2px solid #7c3aed !important;
+            color: #374151 !important;
+            font-weight: 500;
+        }
+        
+        .tab-content {
+            min-height: 80px;
         }
     </style>
 </head>
@@ -516,39 +541,6 @@
             <div class="form-section">
                 <h2>Image Generation</h2>
                 
-                {% if model_loaded and model_parameters %}
-                <div style="background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
-                    <h4 style="margin: 0 0 10px 0; color: #0369a1; font-size: 14px; font-weight: 600;">
-                        📋 Recommended Settings for {{ current_model }}
-                    </h4>
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; font-size: 13px;">
-                        {% if model_parameters.get('num_inference_steps') %}
-                        <div style="background: white; padding: 8px; border-radius: 4px;">
-                            <strong>Inference Steps:</strong> {{ model_parameters.num_inference_steps }}
-                        </div>
-                        {% endif %}
-                        {% if model_parameters.get('guidance_scale') %}
-                        <div style="background: white; padding: 8px; border-radius: 4px;">
-                            <strong>Guidance Scale:</strong> {{ model_parameters.guidance_scale }}
-                        </div>
-                        {% endif %}
-                        {% if model_parameters.get('width') %}
-                        <div style="background: white; padding: 8px; border-radius: 4px;">
-                            <strong>Width:</strong> {{ model_parameters.width }}px
-                        </div>
-                        {% endif %}
-                        {% if model_parameters.get('height') %}
-                        <div style="background: white; padding: 8px; border-radius: 4px;">
-                            <strong>Height:</strong> {{ model_parameters.height }}px
-                        </div>
-                        {% endif %}
-                    </div>
-                    <p style="margin: 10px 0 0 0; color: #0369a1; font-size: 12px;">
-                        💡 These values are automatically applied to the form below. You can adjust them as needed.
-                    </p>
-                </div>
-                {% endif %}
-                
                 {% if not model_loaded %}
                 <div class="model-info">
                     <strong>⚠️ Note:</strong> Please first load a model in the model management area above, or use CLI: <code>ollamadiffuser load model-name</code>
@@ -619,83 +611,78 @@
                             🎛️ ControlNet Controls(structure, composition, and spatial layout) ({{ controlnet_type|title }})
                         </h3>
                         
+                        <!-- ControlNet Status (Compact) -->
                         {% if not controlnet_initialized %}
-                        <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 6px; padding: 15px; margin-bottom: 15px;">
-                            <p style="color: #92400e; margin: 0; font-size: 14px;">
-                                ⚠️ ControlNet preprocessors not initialized. They will be automatically loaded when you upload a control image, or you can initialize them now for faster processing.
-                            </p>
-                            <button type="button" onclick="initializeControlNet()" style="margin-top: 10px; padding: 8px 16px; background: #f59e0b; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">
-                                Initialize ControlNet Preprocessors
+                        <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 4px; padding: 8px; margin-bottom: 10px; font-size: 12px;">
+                            <span style="color: #92400e;">⚠️ Not initialized</span>
+                            <button type="button" onclick="initializeControlNet()" style="margin-left: 10px; padding: 4px 8px; background: #f59e0b; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 11px;">
+                                Initialize
                             </button>
                         </div>
                         {% else %}
-                        <div style="background: #d1fae5; border: 1px solid #10b981; border-radius: 6px; padding: 10px; margin-bottom: 15px;">
-                            <p style="color: #065f46; margin: 0; font-size: 14px;">
-                                ✅ ControlNet preprocessors ready
-                            </p>
+                        <div style="background: #d1fae5; border: 1px solid #10b981; border-radius: 4px; padding: 6px; margin-bottom: 10px; font-size: 12px; color: #065f46;">
+                            ✅ Ready
                         </div>
                         {% endif %}
                         
-                        <!-- Sample Gallery -->
-                        {% if sample_metadata and controlnet_type in sample_metadata %}
-                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
-                            <h4 style="margin: 0 0 15px 0; color: #374151; font-size: 16px; font-weight: 600;">
-                                🎨 Sample Control Images - Try These!
-                            </h4>
-                            <p style="margin: 0 0 15px 0; color: #6b7280; font-size: 14px;">
-                                Click any sample below to use it as your control image. These are designed to work great with {{ controlnet_type }} ControlNet.
-                            </p>
+                        <!-- Tabbed Interface -->
+                        <div style="margin-bottom: 15px;">
+                            <div style="display: flex; border-bottom: 1px solid #e5e7eb; margin-bottom: 10px;">
+                                <button type="button" onclick="switchControlTab('upload')" id="uploadTab" class="control-tab active-tab" style="flex: 1; padding: 8px 12px; border: none; background: #f8fafc; border-bottom: 2px solid #7c3aed; cursor: pointer; font-size: 13px; font-weight: 500;">
+                                    📁 Upload Image
+                                </button>
+                                <button type="button" onclick="switchControlTab('samples')" id="samplesTab" class="control-tab" style="flex: 1; padding: 8px 12px; border: none; background: #f8fafc; border-bottom: 2px solid transparent; cursor: pointer; font-size: 13px; color: #6b7280;">
+                                    🎨 Samples ({{ sample_metadata[controlnet_type]|length if sample_metadata and controlnet_type in sample_metadata else 0 }})
+                                </button>
+                                <button type="button" onclick="switchControlTab('settings')" id="settingsTab" class="control-tab" style="flex: 1; padding: 8px 12px; border: none; background: #f8fafc; border-bottom: 2px solid transparent; cursor: pointer; font-size: 13px; color: #6b7280;">
+                                    ⚙️ Settings
+                                </button>
+                            </div>
                             
-                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
-                                {% for filename, metadata in sample_metadata[controlnet_type].items() %}
-                                <div class="sample-item" onclick="loadSampleImage('{{ controlnet_type }}', '{{ filename }}')">
-                                    <img src="/samples/{{ controlnet_type }}/{{ filename }}" alt="{{ metadata.title }}">
-                                    <div style="text-align: center;">
-                                        <div style="font-weight: 600; color: #374151; font-size: 14px; margin-bottom: 4px;">{{ metadata.title }}</div>
-                                        <div style="color: #6b7280; font-size: 12px; line-height: 1.3; margin-bottom: 6px;">{{ metadata.description }}</div>
-                                        <div style="display: flex; flex-wrap: wrap; gap: 4px; justify-content: center;">
-                                            {% for tag in metadata.good_for[:3] %}
-                                            <span style="background: #e0e7ff; color: #3730a3; padding: 2px 6px; border-radius: 12px; font-size: 10px;">{{ tag }}</span>
-                                            {% endfor %}
-                                        </div>
+                            <!-- Upload Tab -->
+                            <div id="uploadTabContent" class="tab-content">
+                                <div class="form-group" style="margin-bottom: 10px;">
+                                    <input type="file" name="control_image" id="control_image" accept="image/*" class="file-input" style="padding: 8px; font-size: 13px;">
+                                    <small class="help-text" style="font-size: 11px;">Upload image for {{ controlnet_type }} control</small>
+                                </div>
+                            </div>
+                            
+                            <!-- Samples Tab -->
+                            <div id="samplesTabContent" class="tab-content" style="display: none;">
+                                {% if sample_metadata and controlnet_type in sample_metadata %}
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; max-height: 200px; overflow-y: auto;">
+                                    {% for filename, metadata in sample_metadata[controlnet_type].items() %}
+                                    <div class="sample-item" onclick="loadSampleImage('{{ controlnet_type }}', '{{ filename }}')" style="padding: 6px;">
+                                        <img src="/samples/{{ controlnet_type }}/{{ filename }}" alt="{{ metadata.title }}" style="width: 100%; height: 80px; object-fit: cover; border-radius: 3px; margin-bottom: 4px;">
+                                        <div style="text-align: center; font-size: 10px; color: #374151; font-weight: 500;">{{ metadata.title }}</div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {% else %}
+                                <p style="color: #6b7280; font-size: 12px; text-align: center; margin: 20px 0;">No samples available</p>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Settings Tab -->
+                            <div id="settingsTabContent" class="tab-content" style="display: none;">
+                                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+                                    <div>
+                                        <label style="font-size: 11px; color: #374151; display: block; margin-bottom: 3px;">Strength</label>
+                                        <input type="number" name="controlnet_conditioning_scale" id="controlnet_conditioning_scale" value="{{ controlnet_conditioning_scale or 1.0 }}" min="0.0" max="2.0" step="0.1" style="width: 100%; padding: 4px 6px; font-size: 12px; border: 1px solid #d1d5db; border-radius: 3px;">
+                                    </div>
+                                    <div>
+                                        <label style="font-size: 11px; color: #374151; display: block; margin-bottom: 3px;">Start</label>
+                                        <input type="number" name="control_guidance_start" id="control_guidance_start" value="{{ control_guidance_start or 0.0 }}" min="0.0" max="1.0" step="0.1" style="width: 100%; padding: 4px 6px; font-size: 12px; border: 1px solid #d1d5db; border-radius: 3px;">
+                                    </div>
+                                    <div>
+                                        <label style="font-size: 11px; color: #374151; display: block; margin-bottom: 3px;">End</label>
+                                        <input type="number" name="control_guidance_end" id="control_guidance_end" value="{{ control_guidance_end or 1.0 }}" min="0.0" max="1.0" step="0.1" style="width: 100%; padding: 4px 6px; font-size: 12px; border: 1px solid #d1d5db; border-radius: 3px;">
                                     </div>
                                 </div>
-                                {% endfor %}
+                                <div style="margin-top: 8px; padding: 6px; background: #f0f9ff; border-radius: 3px; font-size: 10px; color: #0369a1;">
+                                    💡 Strength: How much control to apply | Start/End: When to apply control during generation
+                                </div>
                             </div>
-                            
-                            <div style="margin-top: 15px; padding: 10px; background: #fef3c7; border-radius: 6px;">
-                                <p style="margin: 0; color: #92400e; font-size: 13px;">
-                                    💡 <strong>Tip:</strong> After selecting a sample, you can still upload your own image to replace it. These samples are just to get you started!
-                                </p>
-                            </div>
-                        </div>
-                        {% endif %}
-                        
-                        <div class="form-group">
-                            <label for="control_image">Control Image</label>
-                            <input type="file" name="control_image" id="control_image" accept="image/*" class="file-input">
-                            <small class="help-text">
-                                Upload an image to control the generation. The image will be automatically preprocessed for {{ controlnet_type }} control.
-                            </small>
-                        </div>
-                        
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="controlnet_conditioning_scale">Conditioning Scale</label>
-                                <input type="number" name="controlnet_conditioning_scale" id="controlnet_conditioning_scale" value="{{ controlnet_conditioning_scale or 1.0 }}" min="0.0" max="2.0" step="0.1">
-                                <small class="help-text">How strongly the control image influences generation (0.0-2.0)</small>
-                            </div>
-                            <div class="form-group">
-                                <label for="control_guidance_start">Guidance Start</label>
-                                <input type="number" name="control_guidance_start" id="control_guidance_start" value="{{ control_guidance_start or 0.0 }}" min="0.0" max="1.0" step="0.1">
-                                <small class="help-text">When to start applying control (0.0 = from beginning)</small>
-                            </div>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="control_guidance_end">Guidance End</label>
-                            <input type="number" name="control_guidance_end" id="control_guidance_end" value="{{ control_guidance_end or 1.0 }}" min="0.0" max="1.0" step="0.1">
-                            <small class="help-text">When to stop applying control (1.0 = until the end)</small>
                         </div>
                     </div>
                     {% endif %}
@@ -791,6 +778,34 @@
                 button.disabled = false;
             }
         }
+        
+        function switchControlTab(tab) {
+            // Remove active class from all tabs
+            const tabs = document.querySelectorAll('.control-tab');
+            tabs.forEach(t => t.classList.remove('active-tab'));
+            
+            // Add active class to the clicked tab
+            const clickedTab = document.getElementById(tab + 'Tab');
+            clickedTab.classList.add('active-tab');
+            
+            // Hide all tab contents
+            const contents = document.querySelectorAll('.tab-content');
+            contents.forEach(content => content.style.display = 'none');
+            
+            // Show the selected tab content
+            const selectedContent = document.getElementById(tab + 'TabContent');
+            if (selectedContent) {
+                selectedContent.style.display = 'block';
+            }
+        }
+        
+        // Initialize the first tab as active when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            const uploadContent = document.getElementById('uploadTabContent');
+            if (uploadContent) {
+                uploadContent.style.display = 'block';
+            }
+        });
         
         async function loadSampleImage(controlnetType, filename) {
             try {
