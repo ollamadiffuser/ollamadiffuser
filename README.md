@@ -342,7 +342,14 @@ pip install opencv-python>=4.8.0
 ollamadiffuser verify-deps
 
 # Or install with all optional dependencies
+# For bash/sh:
 pip install ollamadiffuser[full]
+
+# For zsh (macOS default):
+pip install "ollamadiffuser[full]"
+
+# For fish shell:
+pip install 'ollamadiffuser[full]'
 ```
 
 #### Complete Dependency Check
@@ -360,7 +367,16 @@ If you're having persistent issues:
 ```bash
 # Uninstall and reinstall
 pip uninstall ollamadiffuser
+
+# Reinstall with all dependencies (shell-specific syntax):
+# For bash/sh:
 pip install --no-cache-dir ollamadiffuser[full]
+
+# For zsh (macOS default):
+pip install --no-cache-dir "ollamadiffuser[full]"
+
+# For fish shell:
+pip install --no-cache-dir 'ollamadiffuser[full]'
 
 # Verify installation
 ollamadiffuser verify-deps

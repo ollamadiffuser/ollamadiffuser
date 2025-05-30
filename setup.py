@@ -37,19 +37,11 @@ REQUIRED = [
     "numpy>=1.21.0",
 ]
 
-# Optional dependencies that can fall back gracefully
-OPTIONAL = [
+# Optional dependencies for [full] installation
+FULL_EXTRAS = [
     "controlnet-aux>=0.0.7",
     "opencv-python>=4.8.0",
 ]
-
-# Try to install optional dependencies, but don't fail if they can't be installed
-install_requires = REQUIRED[:]
-for dep in OPTIONAL:
-    try:
-        install_requires.append(dep)
-    except Exception:
-        print(f"Warning: Optional dependency {dep} could not be added to requirements")
 
 setup(
     name="ollamadiffuser",
@@ -75,7 +67,7 @@ setup(
         "Topic :: Multimedia :: Graphics",
     ],
     python_requires=">=3.10",
-    install_requires=install_requires,
+    install_requires=REQUIRED,
     extras_require={
         "dev": [
             "pytest>=7.0.0",
@@ -84,10 +76,7 @@ setup(
             "isort>=5.12.0",
             "flake8>=6.0.0",
         ],
-        "full": [
-            "controlnet-aux>=0.0.7",
-            "opencv-python>=4.8.0",
-        ],
+        "full": FULL_EXTRAS,
     },
     entry_points={
         "console_scripts": [

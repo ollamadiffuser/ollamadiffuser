@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ollamadiffuser"
-version = "1.1.3"
+version = "1.1.4"
 authors = [
     {name = "OllamaDiffuser Team", email = "ollamadiffuser@gmail.com"}
 ]
@@ -62,8 +62,7 @@ dependencies = [
     "psutil>=5.9.0",
     "jinja2>=3.0.0",
     "peft>=0.10.0",
-    "controlnet-aux>=0.0.7",
-    "opencv-python>=4.8.0",
+    "numpy>=1.21.0",
 ]
 
 [project.optional-dependencies]
@@ -73,6 +72,10 @@ dev = [
     "black>=23.0.0",
     "isort>=5.12.0",
     "flake8>=6.0.0",
+]
+full = [
+    "controlnet-aux>=0.0.7",
+    "opencv-python>=4.8.0",
 ]
 
 [project.scripts]
