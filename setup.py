@@ -1,5 +1,15 @@
 from setuptools import setup, find_packages
 import sys
+import os
+
+# Read version from __init__.py
+def get_version():
+    init_path = os.path.join(os.path.dirname(__file__), "ollamadiffuser", "__init__.py")
+    with open(init_path, "r", encoding="utf-8") as f:
+        for line in f:
+            if line.startswith("__version__"):
+                return line.split("=")[1].strip().strip('"').strip("'")
+    raise RuntimeError("Unable to find version string.")
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
@@ -43,7 +53,7 @@ for dep in OPTIONAL:
 
 setup(
     name="ollamadiffuser",
-    version="1.1.2",
+    version=get_version(),
     author="OllamaDiffuser Team",
     author_email="ollamadiffuser@gmail.com",
     description="🎨 Ollama-like image generation model management tool with LoRA support",
