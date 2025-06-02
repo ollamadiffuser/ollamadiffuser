@@ -96,10 +96,19 @@ Choose from a variety of state-of-the-art image generation models:
 
 | Model | License | Quality | Speed | Commercial Use |
 |-------|---------|---------|-------|----------------|
+| **HiDream-I1** | MIT | **Highest** | 16-50 steps | ✅ Commercial OK |
 | **FLUX.1-schnell** | Apache 2.0 | High | **4 steps** (12x faster) | ✅ Commercial OK |
 | **FLUX.1-dev** | Non-commercial | High | 50 steps | ❌ Non-commercial |
 | **Stable Diffusion 3.5** | CreativeML | Medium | 28 steps | ⚠️ Check License |
 | **Stable Diffusion 1.5** | CreativeML | Fast | Lightweight | ⚠️ Check License |
+
+### 🌟 New: HiDream-I1 Series
+The latest addition to OllamaDiffuser brings **state-of-the-art image generation** with:
+- **17B parameters** for exceptional quality
+- **MIT license** - Full commercial use allowed
+- **Three variants**: Fast (16 steps), Dev (28 steps), Full (50 steps)
+- **Superior benchmarks**: HPSv2.1: 33.82, GenEval: 0.83, DPG-Bench: 85.89
+- **See [HiDream Support Guide](README_HIDREAM_SUPPORT.md) for detailed setup**
 
 ### Why Choose FLUX.1-schnell?
 - **Apache 2.0 license** - Perfect for commercial use

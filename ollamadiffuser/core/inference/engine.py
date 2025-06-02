@@ -11,6 +11,13 @@ from diffusers import (
     StableDiffusionXLControlNetPipeline,
     ControlNetModel
 )
+try:
+    from diffusers import HiDreamImagePipeline
+except ImportError:
+    HiDreamImagePipeline = None
+    logger = logging.getLogger(__name__)
+    logger.warning("HiDreamImagePipeline not available. Please update diffusers to the latest version to use HiDream models.")
+from transformers import PreTrainedTokenizerFast, LlamaForCausalLM
 from PIL import Image
 from typing import Optional, Dict, Any, Union
 from pathlib import Path
@@ -63,10 +70,18 @@ class InferenceEngine:
             "sdxl": StableDiffusionXLPipeline,
             "sd3": StableDiffusion3Pipeline,
             "flux": FluxPipeline,
+            "hidream": HiDreamImagePipeline,
             "controlnet_sd15": StableDiffusionControlNetPipeline,
             "controlnet_sdxl": StableDiffusionXLControlNetPipeline,
         }
-        return pipeline_map.get(model_type)
+        pipeline_class = pipeline_map.get(model_type)
+        
+        # Check if HiDream pipeline is available
+        if model_type == "hidream" and HiDreamImagePipeline is None:
+            logger.error("HiDreamImagePipeline not available. Please update diffusers: pip install git+https://github.com/huggingface/diffusers.git")
+            return None
+            
+        return pipeline_class
     
     def load_model(self, model_config: ModelConfig) -> bool:
         """Load model"""
@@ -114,7 +129,7 @@ class InferenceEngine:
             # Load pipeline
             logger.info(f"Loading model: {model_config.name}")
             
-            # Special handling for FLUX models
+            # Disable safety checker for FLUX models to prevent false NSFW detections
             if model_config.model_type == "flux":
                 # FLUX models work best with bfloat16, but use float32 on CPU or float16 on MPS
                 if self.device == "cpu":
@@ -126,6 +141,52 @@ class InferenceEngine:
                     load_kwargs["torch_dtype"] = torch.bfloat16
                     load_kwargs["use_safetensors"] = True
                     logger.info("Using bfloat16 for FLUX model")
+                    
+                load_kwargs["safety_checker"] = None
+                load_kwargs["requires_safety_checker"] = False
+                load_kwargs["feature_extractor"] = None
+                logger.info("Safety checker disabled for FLUX models to prevent false NSFW detections")
+
+            # Special handling for HiDream models
+            if model_config.model_type == "hidream":
+                # HiDream models work best with bfloat16, but use float32 on CPU
+                if self.device == "cpu":
+                    load_kwargs["torch_dtype"] = torch.float32
+                    logger.info("Using float32 for HiDream model on CPU")
+                    logger.warning("⚠️  HiDream-I1 is a 17B parameter model. CPU inference will be very slow!")
+                    logger.warning("⚠️  For better performance, consider using a GPU with at least 24GB VRAM")
+                else:
+                    load_kwargs["torch_dtype"] = torch.bfloat16
+                    load_kwargs["use_safetensors"] = True
+                    logger.info("Using bfloat16 for HiDream model")
+
+                # HiDream requires special tokenizer and text encoder setup
+                try:
+                    logger.info("Loading Llama tokenizer and text encoder for HiDream model...")
+                    tokenizer_4 = PreTrainedTokenizerFast.from_pretrained("meta-llama/Meta-Llama-3.1-8B-Instruct")
+                    text_encoder_4 = LlamaForCausalLM.from_pretrained(
+                        "meta-llama/Meta-Llama-3.1-8B-Instruct",
+                        output_hidden_states=True,
+                        output_attentions=True,
+                        torch_dtype=load_kwargs["torch_dtype"],
+                    )
+                    
+                    # Add the tokenizer and text encoder to load_kwargs
+                    load_kwargs["tokenizer_4"] = tokenizer_4
+                    load_kwargs["text_encoder_4"] = text_encoder_4
+                    logger.info("Successfully loaded Llama tokenizer and text encoder")
+                    
+                except Exception as e:
+                    logger.error(f"Failed to load Llama components for HiDream model: {e}")
+                    logger.error("Please ensure you have access to meta-llama/Meta-Llama-3.1-8B-Instruct")
+                    logger.error("You may need to login with 'huggingface-cli login' and accept the Llama license")
+                    return False
+
+                # Disable safety checker for HiDream models
+                load_kwargs["safety_checker"] = None
+                load_kwargs["requires_safety_checker"] = False
+                load_kwargs["feature_extractor"] = None
+                logger.info("Safety checker disabled for HiDream models to prevent false NSFW detections")
             
             # Disable safety checker for SD 1.5 to prevent false NSFW detections
             if model_config.model_type == "sd15" or model_config.model_type == "sdxl":
@@ -142,13 +203,6 @@ class InferenceEngine:
                     load_kwargs["torch_dtype"] = torch.float32
                     logger.info("Using float32 for MPS inference to avoid NaN issues with SD 1.5")
                 logger.info("Safety checker disabled for SD 1.5 to prevent false NSFW detections")
-            
-            # Disable safety checker for FLUX models to prevent false NSFW detections
-            if model_config.model_type == "flux":
-                load_kwargs["safety_checker"] = None
-                load_kwargs["requires_safety_checker"] = False
-                load_kwargs["feature_extractor"] = None
-                logger.info("Safety checker disabled for FLUX models to prevent false NSFW detections")
             
             # Load pipeline
             self.pipeline = pipeline_class.from_pretrained(
@@ -197,46 +251,6 @@ class InferenceEngine:
                             logger.info("Enabled sequential CPU offload for memory efficiency")
                         except Exception as e:
                             logger.debug(f"Sequential CPU offload not available: {e}")
-            
-            # Additional safety checker disabling for SD 1.5 (in case the above didn't work)
-            if model_config.model_type == "sd15" or model_config.model_type == "sdxl":
-                if hasattr(self.pipeline, 'safety_checker'):
-                    self.pipeline.safety_checker = None
-                if hasattr(self.pipeline, 'feature_extractor'):
-                    self.pipeline.feature_extractor = None
-                if hasattr(self.pipeline, 'requires_safety_checker'):
-                    self.pipeline.requires_safety_checker = False
-                
-                # Monkey patch the safety checker call to always return False
-                def dummy_safety_check(self, images, clip_input):
-                    return images, [False] * len(images)
-                
-                # Apply monkey patch if safety checker exists
-                if hasattr(self.pipeline, '_safety_check'):
-                    self.pipeline._safety_check = dummy_safety_check.__get__(self.pipeline, type(self.pipeline))
-                
-                # Also monkey patch the run_safety_checker method if it exists
-                if hasattr(self.pipeline, 'run_safety_checker'):
-                    def dummy_run_safety_checker(images, device, dtype):
-                        return images, [False] * len(images)
-                    self.pipeline.run_safety_checker = dummy_run_safety_checker
-                
-                # Monkey patch the check_inputs method to prevent safety checker validation
-                if hasattr(self.pipeline, 'check_inputs'):
-                    original_check_inputs = self.pipeline.check_inputs
-                    def patched_check_inputs(*args, **kwargs):
-                        # Call original but ignore safety checker requirements
-                        try:
-                            return original_check_inputs(*args, **kwargs)
-                        except Exception as e:
-                            if "safety_checker" in str(e).lower():
-                                logger.debug(f"Ignoring safety checker validation error: {e}")
-                                return
-                            raise e
-                    self.pipeline.check_inputs = patched_check_inputs
-                
-                logger.info("Additional safety checker components disabled with monkey patch")
-            
             
             # Load LoRA and other components
             if model_config.components and "lora" in model_config.components:
@@ -491,7 +505,7 @@ class InferenceEngine:
                            f"guidance_start={control_guidance_start}, guidance_end={control_guidance_end}")
             
             # Add size parameters based on model type
-            if self.model_config.model_type in ["sdxl", "sd3", "flux", "controlnet_sdxl"]:
+            if self.model_config.model_type in ["sdxl", "sd3", "flux", "hidream", "controlnet_sdxl"]:
                 generation_kwargs.update({
                     "width": width,
                     "height": height
@@ -541,7 +555,61 @@ class InferenceEngine:
                             logger.info(f"Reduced guidance scale to {guidance_scale} for MPS stability")
                         
                         logger.info("🍎 MPS inference - should be faster than CPU but slower than CUDA")
+
+                # HiDream models have special parameters
+                elif self.model_config.model_type == "hidream":
+                    # Add max_sequence_length for HiDream
+                    max_seq_len = self.model_config.parameters.get("max_sequence_length", 512)
+                    generation_kwargs["max_sequence_length"] = max_seq_len
+                    logger.info(f"Using max_sequence_length={max_seq_len} for HiDream model")
                     
+                    # Special handling for HiDream-I1-Fast (distilled model)
+                    if "fast" in self.model_config.name.lower():
+                        # HiDream-I1-Fast doesn't use guidance
+                        if guidance_scale != 0.0:
+                            logger.info("HiDream-I1-Fast detected - setting guidance_scale to 0.0 (distilled model doesn't use guidance)")
+                            generation_kwargs["guidance_scale"] = 0.0
+                        
+                        # Use fewer steps for fast (it's designed for ~16 steps)
+                        if num_inference_steps > 16:
+                            logger.info(f"HiDream-I1-Fast detected - reducing steps from {num_inference_steps} to 16 for optimal performance")
+                            generation_kwargs["num_inference_steps"] = 16
+                        
+                        logger.info("🚀 Using HiDream-I1-Fast - fast distilled model optimized for 16-step generation")
+                    
+                    # Special handling for HiDream-I1-Dev (distilled model)
+                    elif "dev" in self.model_config.name.lower():
+                        # HiDream-I1-Dev doesn't use guidance
+                        if guidance_scale != 0.0:
+                            logger.info("HiDream-I1-Dev detected - setting guidance_scale to 0.0 (distilled model doesn't use guidance)")
+                            generation_kwargs["guidance_scale"] = 0.0
+                        
+                        logger.info("🚀 Using HiDream-I1-Dev - balanced model optimized for 28-step generation")
+                    
+                    # Device-specific adjustments for HiDream
+                    if self.device == "cpu":
+                        # Reduce steps for faster CPU inference
+                        if "full" in self.model_config.name.lower() and num_inference_steps > 30:
+                            num_inference_steps = 30
+                            generation_kwargs["num_inference_steps"] = num_inference_steps
+                            logger.info(f"Reduced inference steps to {num_inference_steps} for CPU performance")
+                        
+                        # Lower guidance scale for CPU stability (except for dev/fast which use 0.0)
+                        if "full" in self.model_config.name.lower() and guidance_scale > 3.0:
+                            guidance_scale = 3.0
+                            generation_kwargs["guidance_scale"] = guidance_scale
+                            logger.info(f"Reduced guidance scale to {guidance_scale} for CPU stability")
+                        
+                        logger.warning("🐌 CPU inference detected - HiDream-I1 is a 17B model, this may take several minutes per image")
+                    elif self.device == "mps":
+                        # MPS-specific adjustments for stability
+                        if "full" in self.model_config.name.lower() and guidance_scale > 5.0:
+                            guidance_scale = 5.0
+                            generation_kwargs["guidance_scale"] = guidance_scale
+                            logger.info(f"Reduced guidance scale to {guidance_scale} for MPS stability")
+                        
+                        logger.info("🍎 MPS inference - should be faster than CPU but slower than CUDA")
+                        
             elif self.model_config.model_type in ["sd15", "controlnet_sd15"]:
                 # SD 1.5 and ControlNet SD 1.5 work best with 512x512, adjust if different sizes requested
                 if width != 1024 or height != 1024:

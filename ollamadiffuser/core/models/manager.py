@@ -256,6 +256,82 @@ class ModelManager:
                     "supported_devices": ["CUDA", "MPS", "CPU"],
                     "performance_notes": "Requires base SDXL model + ControlNet model. Good for depth-based control with SDXL quality."
                 }
+            },
+
+            # HiDream-I1 models
+            "hidream-i1-dev": {
+                "repo_id": "HiDream-ai/HiDream-I1-Dev",
+                "model_type": "hidream",
+                "variant": "bf16",
+                "parameters": {
+                    "num_inference_steps": 28,
+                    "guidance_scale": 0.0,
+                    "max_sequence_length": 512
+                },
+                "hardware_requirements": {
+                    "min_vram_gb": 24,
+                    "recommended_vram_gb": 32,
+                    "min_ram_gb": 32,
+                    "recommended_ram_gb": 64,
+                    "disk_space_gb": 20,
+                    "supported_devices": ["CUDA", "MPS"],
+                    "performance_notes": "17B parameter model with state-of-the-art image generation quality. Requires NVIDIA RTX 4080+ or Apple M3 Max for optimal performance."
+                },
+                "license_info": {
+                    "type": "MIT",
+                    "requires_agreement": False,
+                    "commercial_use": True
+                }
+            },
+
+            "hidream-i1-full": {
+                "repo_id": "HiDream-ai/HiDream-I1-Full",
+                "model_type": "hidream",
+                "variant": "bf16",
+                "parameters": {
+                    "num_inference_steps": 50,
+                    "guidance_scale": 5.0,
+                    "max_sequence_length": 512
+                },
+                "hardware_requirements": {
+                    "min_vram_gb": 24,
+                    "recommended_vram_gb": 32,
+                    "min_ram_gb": 32,
+                    "recommended_ram_gb": 64,
+                    "disk_space_gb": 20,
+                    "supported_devices": ["CUDA", "MPS"],
+                    "performance_notes": "Full 17B parameter model with highest quality. Requires NVIDIA RTX 4080+ or Apple M3 Max for optimal performance."
+                },
+                "license_info": {
+                    "type": "MIT",
+                    "requires_agreement": False,
+                    "commercial_use": True
+                }
+            },
+
+            "hidream-i1-fast": {
+                "repo_id": "HiDream-ai/HiDream-I1-Fast",
+                "model_type": "hidream",
+                "variant": "bf16",
+                "parameters": {
+                    "num_inference_steps": 16,
+                    "guidance_scale": 0.0,
+                    "max_sequence_length": 512
+                },
+                "hardware_requirements": {
+                    "min_vram_gb": 24,
+                    "recommended_vram_gb": 32,
+                    "min_ram_gb": 32,
+                    "recommended_ram_gb": 64,
+                    "disk_space_gb": 20,
+                    "supported_devices": ["CUDA", "MPS"],
+                    "performance_notes": "Fast distilled version of HiDream-I1. Generates high-quality images in ~16 steps. Requires NVIDIA RTX 4080+ or Apple M3 Max."
+                },
+                "license_info": {
+                    "type": "MIT",
+                    "requires_agreement": False,
+                    "commercial_use": True
+                }
             }
         }
     
