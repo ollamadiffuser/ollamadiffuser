@@ -20,7 +20,9 @@ class GenerateRequest(BaseModel):
     prompt: str
     negative_prompt: str = "low quality, bad anatomy, worst quality, low resolution"
     num_inference_steps: Optional[int] = None
+    steps: Optional[int] = None  # Alias for num_inference_steps for convenience
     guidance_scale: Optional[float] = None
+    cfg_scale: Optional[float] = None  # Alias for guidance_scale for convenience
     width: int = 1024
     height: int = 1024
     control_image_path: Optional[str] = None  # Path to control image file
@@ -232,12 +234,18 @@ def create_app() -> FastAPI:
             # Get current loaded inference engine
             engine = model_manager.loaded_model
             
+            # Handle parameter aliasing - prioritize shorter names for convenience
+            steps = request.steps if request.steps is not None else request.num_inference_steps
+            guidance = request.cfg_scale if request.cfg_scale is not None else request.guidance_scale
+            
             # Generate image
             image = engine.generate_image(
                 prompt=request.prompt,
                 negative_prompt=request.negative_prompt,
-                num_inference_steps=request.num_inference_steps,
-                guidance_scale=request.guidance_scale,
+                num_inference_steps=steps,
+                steps=steps,  # Pass both for GGUF compatibility
+                guidance_scale=guidance,
+                cfg_scale=guidance,  # Pass both for GGUF compatibility
                 width=request.width,
                 height=request.height,
                 control_image=request.control_image_path,

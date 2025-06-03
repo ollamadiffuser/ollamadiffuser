@@ -13,6 +13,63 @@
 
 ---
 
+## 🔑 Hugging Face Authentication
+
+**Do you need a Hugging Face token?** It depends on which models you want to use!
+
+### 🟢 Models that DON'T require a token:
+- **FLUX.1-schnell** - Apache 2.0 license, ready to use ✅
+- **Stable Diffusion 1.5** - Basic model, no authentication needed ✅
+- **Most ControlNet models** - Generally public access ✅
+
+### 🟡 Models that DO require a token:
+- **FLUX.1-dev** - Requires HF token and license agreement ⚠️
+- **Stable Diffusion 3.5** - Requires HF token and license agreement ⚠️
+- **Some premium LoRAs** - Gated models from Hugging Face ⚠️
+
+### 🚀 Quick Setup
+
+**For basic usage** (no token needed):
+```bash
+# These work immediately without any setup:
+ollamadiffuser pull flux.1-schnell
+ollamadiffuser pull stable-diffusion-1.5
+```
+
+**For advanced models** (token required):
+```bash
+# 1. Set your token
+export HF_TOKEN=your_token_here
+
+# 2. Now you can access gated models
+ollamadiffuser pull flux.1-dev
+ollamadiffuser pull stable-diffusion-3.5-medium
+```
+
+### 🔧 How to get a Hugging Face token:
+
+1. **Create account**: Visit [huggingface.co](https://huggingface.co) and sign up
+2. **Generate token**: Go to Settings → Access Tokens → Create new token
+3. **Accept licenses**: Visit the model pages and accept license agreements:
+   - [FLUX.1-dev](https://huggingface.co/black-forest-labs/FLUX.1-dev)
+   - [Stable Diffusion 3.5](https://huggingface.co/stabilityai/stable-diffusion-3.5-medium)
+4. **Set environment variable**:
+   ```bash
+   # Temporary (current session)
+   export HF_TOKEN=your_token_here
+   
+   # Permanent (add to ~/.bashrc or ~/.zshrc)
+   echo 'export HF_TOKEN=your_token_here' >> ~/.bashrc
+   ```
+
+### 💡 Pro Tips:
+- **Start simple**: Begin with FLUX.1-schnell (no token required, commercial use OK)
+- **Token scope**: Use "read" permissions for downloading models
+- **Privacy**: Your token stays local - never shared with OllamaDiffuser servers
+- **Troubleshooting**: If downloads fail, verify your token and model access permissions
+
+---
+
 ## ✨ Features
 
 - **🚀 Fast Startup**: Instant application launch with lazy loading architecture
@@ -354,7 +411,6 @@ with open("control.jpg", "rb") as f:
 
 - **[GGUF Models Guide](GGUF_GUIDE.md)**: Complete guide to memory-efficient GGUF models
 - **[ControlNet Guide](CONTROLNET_GUIDE.md)**: Comprehensive ControlNet usage and examples
-- **[Installation Guide](INSTALLATION_GUIDE.md)**: Detailed installation instructions
 - **[Website Documentation](https://www.ollamadiffuser.com/)**: Complete tutorials and guides
 
 ## 🚀 Performance & Hardware
