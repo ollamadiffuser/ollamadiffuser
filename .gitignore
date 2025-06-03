@@ -55,14 +55,15 @@ Thumbs.db
 !assets/*.png
 !assets/*.jpg
 
-# Model files and cache
-models/
-cache/
-.cache/
+# Model files and cache (but not source code)
+# Downloaded model directories in home/.ollamadiffuser/models/
+.ollamadiffuser/models/
+# Downloaded model files anywhere
 *.safetensors
 *.bin
 *.ckpt
 *.pth
+*.gguf
 
 # Config and logs
 *.log
