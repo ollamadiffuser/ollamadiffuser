@@ -1,0 +1,65 @@
+models:
+  my-custom-flux:
+    repo_id: my-username/my-custom-flux-model
+    model_type: flux
+    variant: fp16
+    parameters:
+      num_inference_steps: 20
+      guidance_scale: 3.0
+      max_sequence_length: 512
+    hardware_requirements:
+      min_vram_gb: 10
+      recommended_vram_gb: 16
+      min_ram_gb: 20
+      recommended_ram_gb: 32
+      disk_space_gb: 12
+      supported_devices:
+        - CUDA
+        - MPS
+      performance_notes: Custom FLUX variant optimized for specific use cases
+    license_info:
+      type: MIT
+      requires_agreement: false
+      commercial_use: true
+
+  experimental-sd3:
+    repo_id: research-org/experimental-sd3-variant
+    model_type: sd3
+    variant: fp16
+    parameters:
+      num_inference_steps: 25
+      guidance_scale: 4.0
+    hardware_requirements:
+      min_vram_gb: 8
+      recommended_vram_gb: 12
+      min_ram_gb: 16
+      recommended_ram_gb: 24
+      disk_space_gb: 8
+      supported_devices:
+        - CUDA
+        - MPS
+        - CPU
+      performance_notes: Experimental SD3 model with improved quality
+    license_info:
+      type: Research License
+      requires_agreement: true
+      commercial_use: false
+
+  lightweight-sd15:
+    repo_id: community/lightweight-sd15
+    model_type: sd15
+    variant: fp16
+    parameters:
+      num_inference_steps: 30
+      guidance_scale: 6.0
+    hardware_requirements:
+      min_vram_gb: 2
+      recommended_vram_gb: 4
+      min_ram_gb: 4
+      recommended_ram_gb: 8
+      disk_space_gb: 2
+      supported_devices:
+        - CUDA
+        - MPS
+        - CPU
+      performance_notes: Pruned and optimized SD 1.5 for low-resource environments 

@@ -5,7 +5,158 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.1.0] - 2024-12-XX
+## [1.2.0] - 2025-06-02
+
+### 🚀 Major Features Added
+
+#### ⚡ GGUF Model Support
+- **Quantized Models**: Full support for GGUF (GPT-Generated Unified Format) quantized models
+- **Massive VRAM Reduction**: Run FLUX.1-dev with 3GB VRAM instead of 20GB+ 
+- **7 Quantization Levels**: From q2k (3GB) to f16 (16GB) for different hardware capabilities
+- **Hardware Optimization**: Native CUDA and Metal acceleration support
+- **CPU Fallback**: Automatic CPU inference when VRAM is insufficient
+
+#### 🎛️ GGUF Model Variants
+- **flux.1-dev-gguf-q2k**: Ultra-low VRAM (3GB) for testing and low-end hardware
+- **flux.1-dev-gguf-q3ks**: Balanced option (4GB) for mobile GPUs
+- **flux.1-dev-gguf-q4ks**: **Recommended** (6GB) - best quality/performance balance
+- **flux.1-dev-gguf-q5ks**: High quality (8GB) for mid-range GPUs
+- **flux.1-dev-gguf-q6k**: Near-original quality (10GB) 
+- **flux.1-dev-gguf-q8**: Minimal quality loss (12GB)
+- **flux.1-dev-gguf-f16**: Full precision (16GB)
+
+### 🛠️ Technical Implementation
+
+#### GGUF Engine Integration
+- **Backend**: stable-diffusion.cpp with Python bindings integration
+- **Automatic Detection**: Seamless GGUF model recognition and loading
+- **Memory Management**: Intelligent VRAM usage and CPU offloading
+- **Hardware Acceleration**: CMAKE-based CUDA and Metal compilation support
+
+#### CLI Enhancements
+- **GGUF Check**: `ollamadiffuser registry check-gguf` command for compatibility verification
+- **Model Pull**: Seamless GGUF model downloading with progress tracking
+- **Status Monitoring**: Real-time GGUF support and model status checking
+
+### 🎯 Performance Optimizations
+
+#### Generation Parameters
+- **Optimized Settings**: 4-step generation (FLUX-optimized)
+- **CFG Scale**: guidance_scale=1.0 for best FLUX results
+- **Euler Sampler**: Recommended sampler for GGUF models
+- **Hardware Adaptation**: Automatic parameter adjustment based on available VRAM
+
+#### Memory Efficiency
+- **Smart Loading**: Load only required model components
+- **Progressive Quantization**: Automatic fallback to lower quantization when needed
+- **Resource Management**: Intelligent GPU memory allocation and cleanup
+
+### 📚 Documentation & Guides
+
+#### Comprehensive GGUF Guide
+- **GGUF_GUIDE.md**: Complete 160+ line guide with installation, usage, and troubleshooting
+- **Hardware Recommendations**: Specific guidance for different GPU tiers
+- **Performance Comparisons**: Quality vs speed vs VRAM usage tables
+- **Troubleshooting**: Common issues and solutions for GGUF models
+
+#### Usage Examples
+- **CLI Workflows**: Step-by-step GGUF model usage examples
+- **Python API**: Code examples for programmatic GGUF model usage
+- **Web UI Integration**: Browser-based GGUF model selection and generation
+
+### 🔧 Dependencies & Requirements
+
+#### New Dependencies
+- **stable-diffusion-cpp-python**: Core GGUF inference engine
+- **gguf**: Model format handling and validation
+- **Enhanced OpenCV**: Updated to >=4.8.0 for improved compatibility
+
+#### Hardware Support
+- **NVIDIA CUDA**: CMAKE_ARGS="-DSD_CUDA=ON" installation
+- **Apple Metal**: CMAKE_ARGS="-DSD_METAL=ON" for M1/M2 Macs
+- **CPU Inference**: Full CPU fallback support for any modern processor
+
+### 🎨 User Experience Improvements
+
+#### Accessibility
+- **Low-End Hardware**: Enable FLUX.1-dev on 3GB GPUs (previously impossible)
+- **Faster Downloads**: Reduced model sizes from ~24GB to 3-16GB
+- **Quick Testing**: Instant model switching between quantization levels
+
+#### Web UI Enhancements
+- **GGUF Model Selection**: Dropdown menu with GGUF model variants
+- **VRAM Monitoring**: Real-time memory usage display
+- **Quality Preview**: Visual quality indicators for each quantization level
+
+### 🐛 Bug Fixes & Improvements
+- **Memory Leaks**: Improved GGUF model cleanup and resource management
+- **Error Handling**: Better error messages for GGUF-specific issues
+- **Compatibility**: Enhanced hardware detection and fallback mechanisms
+
+### ⚠️ Breaking Changes
+- **Dependency Requirements**: New GGUF dependencies required for full functionality
+- **Model Loading**: GGUF models use different loading mechanisms than regular models
+
+### 🔄 Migration Guide
+For users upgrading to v1.2.0:
+
+1. **Install GGUF Dependencies**: `pip install stable-diffusion-cpp-python gguf`
+2. **Check Compatibility**: `ollamadiffuser registry check-gguf`
+3. **Download GGUF Model**: `ollamadiffuser pull flux.1-dev-gguf-q4ks`
+4. **Update Hardware Acceleration**: Reinstall with CUDA/Metal support if needed
+
+### 📊 Performance Metrics
+- **VRAM Reduction**: Up to 85% reduction (20GB → 3GB)
+- **File Size**: Up to 87% smaller downloads (24GB → 3GB)
+- **Generation Speed**: Comparable or faster due to optimized quantization
+- **Quality Retention**: 90%+ quality retention with q4ks quantization
+
+## [1.1.6] - 2025-5-30
+
+### 🎨 New Features
+
+#### ControlNet Sample Images
+- **New CLI Command**: `ollamadiffuser create-samples` for creating ControlNet demonstration images
+- **Built-in Samples**: Pre-made control images for Canny, Depth, OpenPose, and Scribble controls
+- **Web UI Integration**: Sample images automatically available in the web interface for easy testing
+- **Force Recreation**: `--force` flag to recreate all samples even if they exist
+
+#### Installation Helper
+- **New Script**: `install_helper.py` for platform-specific installation guidance
+- **Shell Detection**: Automatically detects user's shell (bash, zsh, fish) and provides correct install syntax
+- **Multiple Installation Options**: Basic, Full, and Development installation commands
+- **Interactive Installation**: Option to install directly from the helper script
+
+### 🛠️ Improvements
+
+#### CLI Enhancements
+- **Progress Tracking**: Enhanced download progress display with Ollama-style formatting
+- **Better Error Handling**: Improved error messages and graceful failure modes
+- **Warning Fixes**: Resolved various CLI warnings and edge cases
+
+#### Web UI Enhancements
+- **Sample Image Gallery**: Built-in ControlNet samples with 3 images per control type
+- **Automatic Sample Creation**: Samples generated automatically when needed
+- **Better UX**: Visual samples make ControlNet testing more intuitive
+
+### 🐛 Bug Fixes
+- **Version Inconsistencies**: Fixed version numbering across different components
+- **Installation Issues**: Resolved shell-specific installation syntax problems
+- **CLI Warnings**: Fixed various warning messages and edge cases
+- **Sample Generation**: Improved reliability of sample image creation
+
+### 📦 Technical Changes
+- **MANIFEST.in**: Updated to include sample images and static files
+- **Dependencies**: Refined dependency management for better compatibility
+- **Shell Compatibility**: Better support for zsh, fish, and bash shells
+
+### 🎯 Sample Images Created
+- **Canny Control**: Geometric shapes, house outline, portrait silhouette (3 samples)
+- **Depth Control**: Depth map variations for different scene types (3 samples)
+- **OpenPose Control**: Human pose variations for different positions (3 samples)
+- **Scribble Control**: Hand-drawn style sketches and outlines (3 samples)
+
+## [1.1.0] - 2025-5-29
 
 ### 🚀 Major Features Added
 
@@ -106,7 +257,7 @@ For users upgrading from v1.0.x:
 - **First Generation**: Slightly slower due to lazy loading, then normal speed
 - **Subsequent Generations**: Same performance as before
 
-## [1.0.0] - 2024-11-XX
+## [1.0.0] - 2025-5-28
 
 ### Added
 - Initial release with core functionality

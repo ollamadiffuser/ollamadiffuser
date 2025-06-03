@@ -12,6 +12,7 @@ from huggingface_hub import snapshot_download, hf_hub_download, HfApi
 from tqdm import tqdm
 import threading
 import requests
+import fnmatch
 
 logger = logging.getLogger(__name__)
 
@@ -201,7 +202,9 @@ def robust_snapshot_download(
     max_retries: int = 3,
     initial_workers: int = 2,
     force_download: bool = False,
-    progress_callback: Optional[Callable] = None
+    progress_callback: Optional[Callable] = None,
+    allow_patterns: Optional[list] = None,
+    ignore_patterns: Optional[list] = None
 ) -> str:
     """
     Download repository snapshot with robust error handling and detailed progress tracking
@@ -214,6 +217,8 @@ def robust_snapshot_download(
         initial_workers: Initial number of workers (reduced on retries)
         force_download: Force re-download
         progress_callback: Optional progress callback function
+        allow_patterns: List of file patterns to include (e.g., ["*.gguf", "*.safetensors"])
+        ignore_patterns: List of file patterns to exclude (e.g., ["*.txt", "*.md"])
     
     Returns:
         Path to downloaded repository
@@ -225,6 +230,32 @@ def robust_snapshot_download(
         progress_callback("pulling manifest")
     
     file_sizes = get_repo_file_list(repo_id)
+    
+    # Filter files based on patterns if provided
+    if allow_patterns or ignore_patterns:
+        filtered_files = {}
+        for filename, size in file_sizes.items():
+            # Check allow patterns (if provided, file must match at least one)
+            if allow_patterns:
+                allowed = any(fnmatch.fnmatch(filename, pattern) for pattern in allow_patterns)
+                if not allowed:
+                    continue
+            
+            # Check ignore patterns (if file matches any, skip it)
+            if ignore_patterns:
+                ignored = any(fnmatch.fnmatch(filename, pattern) for pattern in ignore_patterns)
+                if ignored:
+                    continue
+            
+            filtered_files[filename] = size
+        
+        file_sizes = filtered_files
+        
+        if progress_callback and allow_patterns:
+            progress_callback(f"🔍 Filtering files with patterns: {allow_patterns}")
+        if progress_callback and ignore_patterns:
+            progress_callback(f"🚫 Ignoring patterns: {ignore_patterns}")
+    
     total_size = sum(file_sizes.values())
     
     if progress_callback and file_sizes:
@@ -310,7 +341,9 @@ def robust_snapshot_download(
                 resume_download=True,  # Enable resume
                 etag_timeout=300 + (attempt * 60),  # Increase timeout on retries
                 force_download=force_download,
-                tqdm_class=OllamaStyleTqdm if progress_callback else None
+                tqdm_class=OllamaStyleTqdm if progress_callback else None,
+                allow_patterns=allow_patterns,
+                ignore_patterns=ignore_patterns
             )
             
             if progress_callback:

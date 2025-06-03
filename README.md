@@ -18,6 +18,7 @@
 - **🚀 Fast Startup**: Instant application launch with lazy loading architecture
 - **🎛️ ControlNet Support**: Precise image generation control with 10+ control types
 - **🔄 LoRA Integration**: Dynamic LoRA loading and management
+- **📦 GGUF Support**: Memory-efficient quantized models (3GB VRAM minimum!)
 - **🌐 Multiple Interfaces**: CLI, Python API, Web UI, and REST API
 - **📦 Model Management**: Easy installation and switching between models
 - **⚡ Performance Optimized**: Memory-efficient with GPU acceleration
@@ -39,6 +40,18 @@ curl -X POST http://localhost:8000/api/generate \
   -H "Content-Type: application/json" \
   -d '{"prompt": "A beautiful sunset"}' \
   --output image.png
+```
+
+### GGUF Quick Start (Low VRAM)
+```bash
+# For systems with limited VRAM (3GB+)
+pip install ollamadiffuser stable-diffusion-cpp-python gguf
+
+# Download memory-efficient GGUF model
+ollamadiffuser pull flux.1-dev-gguf-q4ks
+
+# Generate with reduced memory usage
+ollamadiffuser run flux.1-dev-gguf-q4ks
 ```
 
 ### Option 2: Development Installation
@@ -94,12 +107,26 @@ curl -X POST http://localhost:8000/api/generate/controlnet \
 
 Choose from a variety of state-of-the-art image generation models:
 
-| Model | License | Quality | Speed | Commercial Use |
-|-------|---------|---------|-------|----------------|
-| **FLUX.1-schnell** | Apache 2.0 | High | **4 steps** (12x faster) | ✅ Commercial OK |
-| **FLUX.1-dev** | Non-commercial | High | 50 steps | ❌ Non-commercial |
-| **Stable Diffusion 3.5** | CreativeML | Medium | 28 steps | ⚠️ Check License |
-| **Stable Diffusion 1.5** | CreativeML | Fast | Lightweight | ⚠️ Check License |
+| Model | License | Quality | Speed | Commercial Use | VRAM |
+|-------|---------|---------|-------|----------------|------|
+| **FLUX.1-schnell** | Apache 2.0 | High | **4 steps** (12x faster) | ✅ Commercial OK | 20GB+ |
+| **FLUX.1-dev** | Non-commercial | High | 50 steps | ❌ Non-commercial | 20GB+ |
+| **FLUX.1-dev-gguf** | Non-commercial | High | 4 steps | ❌ Non-commercial | **3-16GB** |
+| **Stable Diffusion 3.5** | CreativeML | Medium | 28 steps | ⚠️ Check License | 12GB+ |
+| **Stable Diffusion 1.5** | CreativeML | Fast | Lightweight | ⚠️ Check License | 6GB+ |
+
+### 💾 GGUF Models - Reduced Memory Requirements
+
+**NEW**: GGUF quantized models enable running FLUX.1-dev on budget hardware!
+
+| GGUF Variant | VRAM | Quality | Best For |
+|--------------|------|---------|----------|
+| `flux.1-dev-gguf-q4ks` | 6GB | ⭐⭐⭐⭐ | **Recommended** - RTX 3060/4060 |
+| `flux.1-dev-gguf-q3ks` | 4GB | ⭐⭐⭐ | Mobile GPUs, GTX 1660 Ti |
+| `flux.1-dev-gguf-q2k` | 3GB | ⭐⭐ | Entry-level hardware |
+| `flux.1-dev-gguf-q6k` | 10GB | ⭐⭐⭐⭐⭐ | RTX 3080/4070+ |
+
+📖 **[Complete GGUF Guide](GGUF_GUIDE.md)** - Hardware recommendations, installation, and optimization tips
 
 ### Why Choose FLUX.1-schnell?
 - **Apache 2.0 license** - Perfect for commercial use
@@ -237,6 +264,11 @@ else:
 - **Stable Diffusion 3**: Latest architecture
 - **FLUX.1**: State-of-the-art quality
 
+### GGUF Quantized Models
+- **FLUX.1-dev GGUF**: 7 quantization levels (3GB-16GB VRAM)
+- **Memory Efficient**: Run high-quality models on budget hardware
+- **Same API**: Works seamlessly with existing commands
+
 ### ControlNet Models
 - **SD 1.5 ControlNet**: 4 control types (canny, depth, openpose, scribble)
 - **SDXL ControlNet**: 2 control types (canny, depth)
@@ -268,6 +300,19 @@ image = engine.generate_image(
     control_guidance_start=0.0,         # When to start (0.0-1.0)
     control_guidance_end=1.0            # When to end (0.0-1.0)
 )
+```
+
+### GGUF Model Usage
+```bash
+# Check GGUF support
+ollamadiffuser registry check-gguf
+
+# Download GGUF model for your hardware
+ollamadiffuser pull flux.1-dev-gguf-q4ks  # 6GB VRAM
+ollamadiffuser pull flux.1-dev-gguf-q3ks  # 4GB VRAM
+
+# Use with optimized settings
+ollamadiffuser run flux.1-dev-gguf-q4ks
 ```
 
 ### Batch Processing
@@ -307,7 +352,9 @@ with open("control.jpg", "rb") as f:
 
 ## 📚 Documentation & Guides
 
+- **[GGUF Models Guide](GGUF_GUIDE.md)**: Complete guide to memory-efficient GGUF models
 - **[ControlNet Guide](CONTROLNET_GUIDE.md)**: Comprehensive ControlNet usage and examples
+- **[Installation Guide](INSTALLATION_GUIDE.md)**: Detailed installation instructions
 - **[Website Documentation](https://www.ollamadiffuser.com/)**: Complete tutorials and guides
 
 ## 🚀 Performance & Hardware
@@ -318,9 +365,16 @@ with open("control.jpg", "rb") as f:
 - **Python**: 3.8+
 
 ### Recommended Hardware
+
+#### For Regular Models
 - **GPU**: 8GB+ VRAM (NVIDIA/AMD)
 - **RAM**: 16GB+ system RAM
 - **Storage**: SSD with 50GB+ free space
+
+#### For GGUF Models (Memory Efficient)
+- **GPU**: 3GB+ VRAM (or CPU only)
+- **RAM**: 8GB+ system RAM (16GB+ for CPU inference)
+- **Storage**: SSD with 20GB+ free space
 
 ### Supported Platforms
 - **CUDA**: NVIDIA GPUs (recommended)
@@ -350,6 +404,18 @@ pip install "ollamadiffuser[full]"
 
 # For fish shell:
 pip install 'ollamadiffuser[full]'
+```
+
+#### GGUF Support Issues
+```bash
+# Install GGUF dependencies
+pip install stable-diffusion-cpp-python gguf
+
+# Check GGUF support
+ollamadiffuser registry check-gguf
+
+# See full GGUF troubleshooting guide
+# Read GGUF_GUIDE.md for detailed troubleshooting
 ```
 
 #### Complete Dependency Check
@@ -406,6 +472,10 @@ curl -X POST http://localhost:8000/api/controlnet/initialize
 
 #### Memory Issues
 ```bash
+# Use GGUF models for lower memory usage
+ollamadiffuser pull flux.1-dev-gguf-q4ks  # 6GB VRAM
+ollamadiffuser pull flux.1-dev-gguf-q3ks  # 4GB VRAM
+
 # Use smaller image sizes via API
 curl -X POST http://localhost:8000/api/generate \
   -H "Content-Type: application/json" \
@@ -424,12 +494,18 @@ curl -X POST http://localhost:8000/api/generate \
 # If you encounter OpenCV issues on Apple Silicon
 pip uninstall opencv-python
 pip install opencv-python-headless>=4.8.0
+
+# For GGUF Metal acceleration
+CMAKE_ARGS="-DSD_METAL=ON" pip install stable-diffusion-cpp-python
 ```
 
 #### Windows
 ```bash
 # If you encounter build errors
 pip install --only-binary=all opencv-python>=4.8.0
+
+# For GGUF CUDA acceleration
+CMAKE_ARGS="-DSD_CUDA=ON" pip install stable-diffusion-cpp-python
 ```
 
 #### Linux
@@ -472,6 +548,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🙏 Acknowledgments
 
 - **Stability AI**: For Stable Diffusion models
+- **Black Forest Labs**: For FLUX.1 models
+- **city96**: For FLUX.1-dev GGUF quantizations
 - **Hugging Face**: For model hosting and diffusers library
 - **ControlNet Team**: For ControlNet architecture
 - **Community**: For feedback and contributions

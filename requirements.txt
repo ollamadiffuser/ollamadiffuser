@@ -18,3 +18,9 @@ jinja2>=3.0.0
 peft>=0.10.0
 controlnet-aux>=0.0.7
 opencv-python>=4.8.0
+PyYAML>=6.0
+requests>=2.25.0
+numpy>=1.21.0
+# Full installation includes GGUF support and ControlNet
+stable-diffusion-cpp-python>=0.1.0
+gguf>=0.1.0

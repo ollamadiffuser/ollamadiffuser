@@ -12,6 +12,7 @@ import time
 from .. import __version__, print_version
 from ..core.models.manager import model_manager
 from ..core.config.settings import settings
+from ..core.config.model_registry import model_registry
 from ..api.server import run_server
 
 console = Console()
@@ -158,27 +159,29 @@ def run(model_name: str, host: Optional[str], port: Optional[int]):
 @cli.command()
 @click.option('--hardware', '-hw', is_flag=True, help='Show hardware requirements')
 def list(hardware: bool):
-    """List all models"""
-    available_models = model_manager.list_available_models()
+    """List installed models only"""
     installed_models = model_manager.list_installed_models()
     current_model = model_manager.get_current_model()
     
+    if not installed_models:
+        rprint("[yellow]No models installed[/yellow]")
+        rprint("\n[dim]💡 Download models with: ollamadiffuser pull <model-name>[/dim]")
+        rprint("[dim]💡 See all available models: ollamadiffuser registry list[/dim]")
+        rprint("[dim]💡 See only available models: ollamadiffuser registry list --available-only[/dim]")
+        return
+    
     if hardware:
         # Show detailed hardware requirements
-        for model_name in available_models:
+        for model_name in installed_models:
             info = model_manager.get_model_info(model_name)
             if not info:
                 continue
                 
             # Check installation status
-            if model_name in installed_models:
-                status = "✅ Installed"
-                if model_name == current_model:
-                    status += " (current)"
-                size = info.get('size', 'Unknown')
-            else:
-                status = "⬇️ Available"
-                size = "-"
+            status = "✅ Installed"
+            if model_name == current_model:
+                status += " (current)"
+            size = info.get('size', 'Unknown')
             
             # Create individual table for each model
             table = Table(title=f"[bold cyan]{model_name}[/bold cyan] - {status}")
@@ -204,30 +207,23 @@ def list(hardware: bool):
             console.print()  # Add spacing between models
     else:
         # Show compact table
-        table = Table(title="OllamaDiffuser Model List")
+        table = Table(title="Installed Models")
         table.add_column("Model Name", style="cyan", no_wrap=True)
         table.add_column("Status", style="green")
         table.add_column("Size", style="blue")
         table.add_column("Type", style="magenta")
         table.add_column("Min VRAM", style="yellow")
         
-        for model_name in available_models:
+        for model_name in installed_models:
             # Check installation status
-            if model_name in installed_models:
-                status = "✅ Installed"
-                if model_name == current_model:
-                    status += " (current)"
-                
-                # Get model information
-                info = model_manager.get_model_info(model_name)
-                size = info.get('size', 'Unknown') if info else 'Unknown'
-                model_type = info.get('model_type', 'Unknown') if info else 'Unknown'
-            else:
-                status = "⬇️ Available"
-                size = "-"
-                # Get type from registry
-                info = model_manager.get_model_info(model_name)
-                model_type = info.get('model_type', 'Unknown') if info else 'Unknown'
+            status = "✅ Installed"
+            if model_name == current_model:
+                status += " (current)"
+            
+            # Get model information
+            info = model_manager.get_model_info(model_name)
+            size = info.get('size', 'Unknown') if info else 'Unknown'
+            model_type = info.get('model_type', 'Unknown') if info else 'Unknown'
             
             # Get hardware requirements
             hw_req = info.get('hardware_requirements', {}) if info else {}
@@ -236,7 +232,18 @@ def list(hardware: bool):
             table.add_row(model_name, status, size, model_type, min_vram)
         
         console.print(table)
+        
+        # Get counts for summary
+        available_models = model_registry.get_available_models()
+        external_models = model_registry.get_external_api_models_only()
+        
+        console.print(f"\n[dim]💡 Installed: {len(installed_models)} models[/dim]")
+        console.print(f"[dim]💡 Available for download: {len(available_models)} models[/dim]")
+        if external_models:
+            console.print(f"[dim]💡 External API models: {len(external_models)} models[/dim]")
         console.print("\n[dim]💡 Use --hardware flag to see detailed hardware requirements[/dim]")
+        console.print("[dim]💡 See all models: ollamadiffuser registry list[/dim]")
+        console.print("[dim]💡 See available models: ollamadiffuser registry list --available-only[/dim]")
 
 @cli.command()
 @click.argument('model_name')
@@ -966,6 +973,337 @@ def create_samples_cmd(force):
     from .commands import create_samples
     ctx = click.Context(create_samples)
     ctx.invoke(create_samples, force=force)
+
+@cli.group(hidden=True)
+def registry():
+    """Manage model registry (internal command)"""
+    pass
+
+@registry.command()
+@click.option('--format', '-f', type=click.Choice(['table', 'json', 'yaml']), default='table', help='Output format')
+@click.option('--installed-only', is_flag=True, help='Show only installed models')
+@click.option('--available-only', is_flag=True, help='Show only available (not installed) models')
+@click.option('--external-only', is_flag=True, help='Show only externally defined models')
+def list(format: str, installed_only: bool, available_only: bool, external_only: bool):
+    """List models in the registry with installation status"""
+    
+    # Get different model categories
+    if installed_only:
+        models = model_registry.get_installed_models()
+        title = "Installed Models"
+    elif available_only:
+        models = model_registry.get_available_models()
+        title = "Available Models (Not Installed)"
+    elif external_only:
+        models = model_registry.get_external_api_models_only()
+        title = "External API Models"
+    else:
+        models = model_registry.get_all_models()
+        title = "All Models (Installed + Available)"
+    
+    installed_model_names = set(model_registry.get_installed_models().keys())
+    local_model_names = set(model_registry.get_local_models_only().keys())
+    external_model_names = set(model_registry.get_external_api_models_only().keys())
+    current_model = model_manager.get_current_model()
+    
+    if not models:
+        rprint(f"[yellow]No models found in category: {title}[/yellow]")
+        return
+    
+    if format == 'table':
+        table = Table(title=title)
+        table.add_column("Model Name", style="cyan", no_wrap=True)
+        table.add_column("Type", style="yellow")
+        table.add_column("Repository", style="blue")
+        table.add_column("Status", style="green")
+        table.add_column("Source", style="magenta")
+        
+        for model_name, model_info in models.items():
+            # Check installation status
+            if model_name in installed_model_names:
+                status = "✅ Installed"
+                if model_name == current_model:
+                    status += " (current)"
+            else:
+                status = "⬇️ Available"
+            
+            # Determine source
+            if model_name in local_model_names and model_name in external_model_names:
+                source = "Local + External"
+            elif model_name in local_model_names:
+                source = "Local"
+            elif model_name in external_model_names:
+                source = "External API"
+            else:
+                source = "Unknown"
+            
+            table.add_row(
+                model_name,
+                model_info.get('model_type', 'Unknown'),
+                model_info.get('repo_id', 'Unknown'),
+                status,
+                source
+            )
+        
+        console.print(table)
+        
+        # Show summary
+        if not (installed_only or available_only or external_only):
+            total_count = len(models)
+            installed_count = len(installed_model_names)
+            available_count = total_count - installed_count
+            local_count = len(local_model_names)
+            external_count = len(external_model_names)
+            
+            console.print(f"\n[dim]Summary:[/dim]")
+            console.print(f"[dim]  • Total: {total_count} models[/dim]")
+            console.print(f"[dim]  • Installed: {installed_count} models[/dim]")
+            console.print(f"[dim]  • Available: {available_count} models[/dim]")
+            console.print(f"[dim]  • Local registry: {local_count} models[/dim]")
+            console.print(f"[dim]  • External API: {external_count} models[/dim]")
+        
+    elif format == 'json':
+        import json
+        print(json.dumps(models, indent=2, ensure_ascii=False))
+    
+    elif format == 'yaml':
+        import yaml
+        print(yaml.dump(models, default_flow_style=False, allow_unicode=True))
+
+@registry.command()
+@click.argument('model_name')
+@click.argument('repo_id')
+@click.argument('model_type')
+@click.option('--variant', help='Model variant (e.g., fp16, bf16)')
+@click.option('--license-type', help='License type')
+@click.option('--commercial-use', type=bool, help='Whether commercial use is allowed')
+@click.option('--save', is_flag=True, help='Save to user configuration file')
+def add(model_name: str, repo_id: str, model_type: str, variant: Optional[str], 
+        license_type: Optional[str], commercial_use: Optional[bool], save: bool):
+    """Add a new model to the registry"""
+    
+    model_config = {
+        "repo_id": repo_id,
+        "model_type": model_type
+    }
+    
+    if variant:
+        model_config["variant"] = variant
+    
+    if license_type or commercial_use is not None:
+        license_info = {}
+        if license_type:
+            license_info["type"] = license_type
+        if commercial_use is not None:
+            license_info["commercial_use"] = commercial_use
+        model_config["license_info"] = license_info
+    
+    if model_registry.add_model(model_name, model_config):
+        rprint(f"[green]Model '{model_name}' added to registry successfully![/green]")
+        
+        if save:
+            try:
+                # Load existing user models and add the new one
+                user_models = {}
+                config_path = settings.config_dir / "models.json"
+                if config_path.exists():
+                    import json
+                    with open(config_path, 'r') as f:
+                        data = json.load(f)
+                        user_models = data.get('models', {})
+                
+                user_models[model_name] = model_config
+                model_registry.save_user_config(user_models, config_path)
+                rprint(f"[green]Model configuration saved to {config_path}[/green]")
+            except Exception as e:
+                rprint(f"[red]Failed to save configuration: {e}[/red]")
+    else:
+        rprint(f"[red]Failed to add model '{model_name}' to registry![/red]")
+        sys.exit(1)
+
+@registry.command()
+@click.argument('model_name')
+@click.option('--from-file', is_flag=True, help='Also remove from user configuration file')
+def remove(model_name: str, from_file: bool):
+    """Remove a model from the registry"""
+    
+    if model_registry.remove_model(model_name):
+        rprint(f"[green]Model '{model_name}' removed from registry![/green]")
+        
+        if from_file:
+            try:
+                config_path = settings.config_dir / "models.json"
+                if config_path.exists():
+                    import json
+                    with open(config_path, 'r') as f:
+                        data = json.load(f)
+                    
+                    user_models = data.get('models', {})
+                    if model_name in user_models:
+                        del user_models[model_name]
+                        model_registry.save_user_config(user_models, config_path)
+                        rprint(f"[green]Model removed from configuration file[/green]")
+                    else:
+                        rprint(f"[yellow]Model not found in configuration file[/yellow]")
+                else:
+                    rprint(f"[yellow]No user configuration file found[/yellow]")
+            except Exception as e:
+                rprint(f"[red]Failed to update configuration file: {e}[/red]")
+    else:
+        rprint(f"[red]Model '{model_name}' not found in registry![/red]")
+        sys.exit(1)
+
+@registry.command()
+def reload():
+    """Reload the model registry from configuration files"""
+    try:
+        model_registry.reload()
+        rprint("[green]Model registry reloaded successfully![/green]")
+        
+        # Show summary
+        models = model_registry.get_all_models()
+        external_registries = model_registry.get_external_registries()
+        
+        rprint(f"[dim]Total models: {len(models)}[/dim]")
+        if external_registries:
+            rprint(f"[dim]External registries: {len(external_registries)}[/dim]")
+            for registry_path in external_registries:
+                rprint(f"[dim]  • {registry_path}[/dim]")
+        else:
+            rprint("[dim]No external registries loaded[/dim]")
+            
+    except Exception as e:
+        rprint(f"[red]Failed to reload registry: {e}[/red]")
+        sys.exit(1)
+
+@registry.command()
+@click.argument('config_file', type=click.Path(exists=True))
+def import_config(config_file: str):
+    """Import models from a configuration file"""
+    try:
+        from pathlib import Path
+        import json
+        import yaml
+        
+        config_path = Path(config_file)
+        
+        with open(config_path, 'r', encoding='utf-8') as f:
+            if config_path.suffix.lower() == '.json':
+                data = json.load(f)
+            elif config_path.suffix.lower() in ['.yaml', '.yml']:
+                data = yaml.safe_load(f)
+            else:
+                rprint(f"[red]Unsupported file format: {config_path.suffix}[/red]")
+                sys.exit(1)
+        
+        if 'models' not in data:
+            rprint("[red]Configuration file must contain a 'models' section[/red]")
+            sys.exit(1)
+        
+        imported_count = 0
+        for model_name, model_config in data['models'].items():
+            if model_registry.add_model(model_name, model_config):
+                imported_count += 1
+                rprint(f"[green]✓ Imported: {model_name}[/green]")
+            else:
+                rprint(f"[red]✗ Failed to import: {model_name}[/red]")
+        
+        rprint(f"[green]Successfully imported {imported_count} models[/green]")
+        
+    except Exception as e:
+        rprint(f"[red]Failed to import configuration: {e}[/red]")
+        sys.exit(1)
+
+@registry.command()
+@click.option('--output', '-o', help='Output file path')
+@click.option('--format', '-f', type=click.Choice(['json', 'yaml']), default='json', help='Output format')
+@click.option('--user-only', is_flag=True, help='Export only user-defined models')
+def export(output: Optional[str], format: str, user_only: bool):
+    """Export model registry to a configuration file"""
+    try:
+        from pathlib import Path
+        import json
+        import yaml
+        
+        if user_only:
+            # Only export models from external registries
+            models = {}
+            external_registries = model_registry.get_external_registries()
+            if external_registries:
+                rprint(f"[yellow]User-only export not fully supported yet. Exporting all models.[/yellow]")
+            
+        models = model_registry.get_all_models()
+        
+        config_data = {"models": models}
+        
+        if output:
+            output_path = Path(output)
+        else:
+            if format == 'json':
+                output_path = Path('models.json')
+            else:
+                output_path = Path('models.yaml')
+        
+        with open(output_path, 'w', encoding='utf-8') as f:
+            if format == 'json':
+                json.dump(config_data, f, indent=2, ensure_ascii=False)
+            else:
+                yaml.safe_dump(config_data, f, default_flow_style=False, allow_unicode=True)
+        
+        rprint(f"[green]Model registry exported to {output_path}[/green]")
+        rprint(f"[dim]Exported {len(models)} models[/dim]")
+        
+    except Exception as e:
+        rprint(f"[red]Failed to export registry: {e}[/red]")
+        sys.exit(1)
+
+@registry.command('check-gguf')
+def check_gguf():
+    """Check GGUF support status"""
+    from ..core.models.gguf_loader import GGUF_AVAILABLE
+    
+    if GGUF_AVAILABLE:
+        rprint("✅ [green]GGUF Support Available[/green]")
+        
+        # Show GGUF models
+        models = model_registry.get_all_models()
+        gguf_models = {name: info for name, info in models.items() 
+                      if model_manager.is_gguf_model(name)}
+        
+        if gguf_models:
+            rprint(f"\n🔥 Found {len(gguf_models)} GGUF models:")
+            
+            table = Table()
+            table.add_column("Model", style="cyan")
+            table.add_column("Variant", style="yellow")
+            table.add_column("VRAM", style="green")
+            table.add_column("Size", style="blue")
+            table.add_column("Installed", style="red")
+            
+            for name, info in gguf_models.items():
+                hw_req = info.get('hardware_requirements', {})
+                installed = "✅" if model_manager.is_model_installed(name) else "❌"
+                
+                table.add_row(
+                    name,
+                    info.get('variant', 'unknown'),
+                    f"{hw_req.get('min_vram_gb', '?')}GB",
+                    f"{hw_req.get('disk_space_gb', '?')}GB",
+                    installed
+                )
+            
+            console.print(table)
+            
+            rprint("\n📋 [blue]Usage:[/blue]")
+            rprint("  ollamadiffuser pull <model-name>  # Download GGUF model")
+            rprint("  ollamadiffuser load <model-name>  # Load GGUF model")
+            rprint("\n💡 [yellow]Tip:[/yellow] Start with flux.1-dev-gguf-q4ks for best balance")
+        else:
+            rprint("ℹ️ No GGUF models found in registry")
+    else:
+        rprint("❌ [red]GGUF Support Not Available[/red]")
+        rprint("📦 Install with: [yellow]pip install llama-cpp-python gguf[/yellow]")
+        rprint("🔧 Or install all dependencies: [yellow]pip install -r requirements.txt[/yellow]")
 
 if __name__ == '__main__':
     cli() 

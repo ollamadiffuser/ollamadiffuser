@@ -9,8 +9,32 @@ from diffusers import (
     FluxPipeline,
     StableDiffusionControlNetPipeline,
     StableDiffusionXLControlNetPipeline,
-    ControlNetModel
+    ControlNetModel,
+    AnimateDiffPipeline,
+    MotionAdapter
 )
+# Try to import HiDreamImagePipeline if available
+try:
+    from diffusers import HiDreamImagePipeline
+    HIDREAM_AVAILABLE = True
+except ImportError:
+    HIDREAM_AVAILABLE = False
+    logger = logging.getLogger(__name__)
+    logger.warning("HiDreamImagePipeline not available. Install latest diffusers from source for HiDream support.")
+
+# Import GGUF support
+try:
+    from ..models.gguf_loader import gguf_loader, GGUF_AVAILABLE
+    logger = logging.getLogger(__name__)
+    if GGUF_AVAILABLE:
+        logger.info("GGUF support available for quantized model inference")
+    else:
+        logger.warning("GGUF support not available. Install with: pip install llama-cpp-python gguf")
+except ImportError:
+    GGUF_AVAILABLE = False
+    logger = logging.getLogger(__name__)
+    logger.warning("GGUF loader module not found")
+
 from PIL import Image
 from typing import Optional, Dict, Any, Union
 from pathlib import Path
@@ -63,9 +87,16 @@ class InferenceEngine:
             "sdxl": StableDiffusionXLPipeline,
             "sd3": StableDiffusion3Pipeline,
             "flux": FluxPipeline,
+            "gguf": "gguf_special",  # Special marker for GGUF models
             "controlnet_sd15": StableDiffusionControlNetPipeline,
             "controlnet_sdxl": StableDiffusionXLControlNetPipeline,
+            "video": AnimateDiffPipeline,
         }
+        
+        # Add HiDream support if available
+        if HIDREAM_AVAILABLE:
+            pipeline_map["hidream"] = HiDreamImagePipeline
+        
         return pipeline_map.get(model_type)
     
     def load_model(self, model_config: ModelConfig) -> bool:
@@ -95,6 +126,34 @@ class InferenceEngine:
             if not pipeline_class:
                 logger.error(f"Unsupported model type: {model_config.model_type}")
                 return False
+            
+            # Handle GGUF models specially
+            if model_config.model_type == "gguf" or (model_config.variant and "gguf" in model_config.variant.lower()):
+                if not GGUF_AVAILABLE:
+                    logger.error("GGUF support not available. Install with: pip install llama-cpp-python gguf")
+                    return False
+                
+                logger.info(f"Loading GGUF model: {model_config.name} (variant: {model_config.variant})")
+                
+                # Use GGUF loader instead of regular pipeline
+                model_config_dict = {
+                    'name': model_config.name,
+                    'path': model_config.path,
+                    'variant': model_config.variant,
+                    'model_type': model_config.model_type,
+                    'parameters': model_config.parameters
+                }
+                
+                if gguf_loader.load_model(model_config_dict):
+                    # Set pipeline to None since we're using GGUF loader
+                    self.pipeline = None
+                    self.model_config = model_config
+                    self.device = self._get_device()
+                    logger.info(f"GGUF model {model_config.name} loaded successfully")
+                    return True
+                else:
+                    logger.error(f"Failed to load GGUF model: {model_config.name}")
+                    return False
             
             # Check if this is a ControlNet model
             self.is_controlnet_pipeline = model_config.model_type.startswith("controlnet_")
@@ -126,6 +185,56 @@ class InferenceEngine:
                     load_kwargs["torch_dtype"] = torch.bfloat16
                     load_kwargs["use_safetensors"] = True
                     logger.info("Using bfloat16 for FLUX model")
+            
+            # Special handling for Video (AnimateDiff) models
+            elif model_config.model_type == "video":
+                # AnimateDiff requires motion adapter
+                logger.info("Loading AnimateDiff (video) model")
+                motion_adapter_path = getattr(model_config, 'motion_adapter_path', None)
+                if not motion_adapter_path:
+                    # Use default motion adapter if not specified
+                    motion_adapter_path = "guoyww/animatediff-motion-adapter-v1-5-2"
+                    logger.info(f"Using default motion adapter: {motion_adapter_path}")
+                
+                try:
+                    # Load motion adapter
+                    motion_adapter = MotionAdapter.from_pretrained(
+                        motion_adapter_path,
+                        torch_dtype=load_kwargs.get("torch_dtype", torch.float16)
+                    )
+                    load_kwargs["motion_adapter"] = motion_adapter
+                    logger.info(f"Motion adapter loaded from: {motion_adapter_path}")
+                except Exception as e:
+                    logger.error(f"Failed to load motion adapter: {e}")
+                    return False
+                
+                # Disable safety checker for AnimateDiff
+                load_kwargs["safety_checker"] = None
+                load_kwargs["requires_safety_checker"] = False
+                load_kwargs["feature_extractor"] = None
+                logger.info("Safety checker disabled for AnimateDiff models")
+            
+            # Special handling for HiDream models
+            elif model_config.model_type == "hidream":
+                if not HIDREAM_AVAILABLE:
+                    logger.error("HiDream models require diffusers to be installed from source. Please install with: pip install git+https://github.com/huggingface/diffusers.git")
+                    return False
+                
+                logger.info("Loading HiDream model")
+                # HiDream models work best with bfloat16
+                if self.device == "cpu":
+                    load_kwargs["torch_dtype"] = torch.float32
+                    logger.info("Using float32 for HiDream model on CPU")
+                    logger.warning("⚠️  HiDream models are large. CPU inference will be slow!")
+                else:
+                    load_kwargs["torch_dtype"] = torch.bfloat16
+                    logger.info("Using bfloat16 for HiDream model")
+                
+                # Disable safety checker for HiDream models
+                load_kwargs["safety_checker"] = None
+                load_kwargs["requires_safety_checker"] = False
+                load_kwargs["feature_extractor"] = None
+                logger.info("Safety checker disabled for HiDream models")
             
             # Disable safety checker for SD 1.5 to prevent false NSFW detections
             if model_config.model_type == "sd15" or model_config.model_type == "sdxl":
@@ -195,6 +304,59 @@ class InferenceEngine:
                         try:
                             self.pipeline.enable_sequential_cpu_offload()
                             logger.info("Enabled sequential CPU offload for memory efficiency")
+                        except Exception as e:
+                            logger.debug(f"Sequential CPU offload not available: {e}")
+            
+            # Special optimizations for Video (AnimateDiff) models
+            elif model_config.model_type == "video":
+                logger.info("Applying optimizations for AnimateDiff video model")
+                # Enable VAE slicing for video models to reduce memory usage
+                if hasattr(self.pipeline, 'enable_vae_slicing'):
+                    self.pipeline.enable_vae_slicing()
+                    logger.info("Enabled VAE slicing for video model")
+                
+                # Enable model CPU offload for better memory management
+                if self.device == "cuda" and hasattr(self.pipeline, 'enable_model_cpu_offload'):
+                    self.pipeline.enable_model_cpu_offload()
+                    logger.info("Enabled model CPU offload for video model")
+                
+                # Set scheduler to work well with AnimateDiff
+                if hasattr(self.pipeline, 'scheduler'):
+                    from diffusers import DDIMScheduler
+                    try:
+                        self.pipeline.scheduler = DDIMScheduler.from_config(
+                            self.pipeline.scheduler.config,
+                            clip_sample=False,
+                            timestep_spacing="linspace",
+                            beta_schedule="linear",
+                            steps_offset=1,
+                        )
+                        logger.info("Configured DDIM scheduler for AnimateDiff")
+                    except Exception as e:
+                        logger.debug(f"Could not configure DDIM scheduler: {e}")
+            
+            # Special optimizations for HiDream models
+            elif model_config.model_type == "hidream":
+                logger.info("Applying optimizations for HiDream model")
+                # Enable VAE slicing and tiling for HiDream models
+                if hasattr(self.pipeline, 'enable_vae_slicing'):
+                    self.pipeline.enable_vae_slicing()
+                    logger.info("Enabled VAE slicing for HiDream model")
+                
+                if hasattr(self.pipeline, 'enable_vae_tiling'):
+                    self.pipeline.enable_vae_tiling()
+                    logger.info("Enabled VAE tiling for HiDream model")
+                
+                # Enable model CPU offload for better memory management
+                if self.device == "cuda" and hasattr(self.pipeline, 'enable_model_cpu_offload'):
+                    self.pipeline.enable_model_cpu_offload()
+                    logger.info("Enabled model CPU offload for HiDream model")
+                elif self.device == "cpu":
+                    # CPU-specific optimizations for HiDream
+                    if hasattr(self.pipeline, 'enable_sequential_cpu_offload'):
+                        try:
+                            self.pipeline.enable_sequential_cpu_offload()
+                            logger.info("Enabled sequential CPU offload for HiDream model")
                         except Exception as e:
                             logger.debug(f"Sequential CPU offload not available: {e}")
             
@@ -445,6 +607,51 @@ class InferenceEngine:
                       control_guidance_end: float = 1.0,
                       **kwargs) -> Image.Image:
         """Generate image"""
+        # Check if we're using a GGUF model
+        is_gguf_model = (
+            self.model_config and 
+            (self.model_config.model_type == "gguf" or 
+             (self.model_config.variant and "gguf" in self.model_config.variant.lower()))
+        )
+        
+        if is_gguf_model:
+            if not GGUF_AVAILABLE:
+                raise RuntimeError("GGUF support not available")
+            
+            if not gguf_loader.is_loaded():
+                raise RuntimeError("GGUF model not loaded")
+            
+            logger.info(f"Generating image using GGUF model: {prompt[:50]}...")
+            
+            # Use model default parameters for GGUF
+            if num_inference_steps is None:
+                num_inference_steps = self.model_config.parameters.get("num_inference_steps", 20)
+            
+            if guidance_scale is None:
+                guidance_scale = self.model_config.parameters.get("guidance_scale", 7.5)
+            
+            # Generate using GGUF loader
+            generation_kwargs = {
+                "prompt": prompt,
+                "negative_prompt": negative_prompt,
+                "num_inference_steps": num_inference_steps,
+                "guidance_scale": guidance_scale,
+                "width": width,
+                "height": height,
+                **kwargs
+            }
+            
+            try:
+                image = gguf_loader.generate_image(**generation_kwargs)
+                if image is None:
+                    logger.warning("GGUF generation returned None, creating error image")
+                    return self._create_error_image("GGUF generation failed or not yet implemented", prompt)
+                return image
+            except Exception as e:
+                logger.error(f"GGUF generation failed: {e}")
+                return self._create_error_image(str(e), prompt)
+        
+        # Continue with regular pipeline generation for non-GGUF models
         if not self.pipeline:
             raise RuntimeError("Model not loaded")
         
@@ -555,6 +762,62 @@ class InferenceEngine:
                         "width": 512,
                         "height": 512
                     })
+            
+            # Special handling for Video (AnimateDiff) models
+            elif self.model_config.model_type == "video":
+                logger.info("Configuring AnimateDiff video generation parameters")
+                
+                # Video-specific parameters
+                num_frames = kwargs.get("num_frames", 16)
+                generation_kwargs["num_frames"] = num_frames
+                
+                # AnimateDiff works best with specific resolutions
+                # Use 512x512 for better compatibility with most motion adapters
+                generation_kwargs.update({
+                    "width": 512,
+                    "height": 512
+                })
+                logger.info(f"Using 512x512 resolution for AnimateDiff compatibility")
+                
+                # Set optimal parameters for video generation
+                if guidance_scale > 7.5:
+                    generation_kwargs["guidance_scale"] = 7.5
+                    logger.info("Reduced guidance scale to 7.5 for video stability")
+                
+                if num_inference_steps > 25:
+                    generation_kwargs["num_inference_steps"] = 25
+                    logger.info("Reduced inference steps to 25 for video generation")
+                
+                logger.info(f"Generating {num_frames} frames for video output")
+            
+            # Special handling for HiDream models  
+            elif self.model_config.model_type == "hidream":
+                logger.info("Configuring HiDream model parameters")
+                
+                # HiDream models support high resolution
+                generation_kwargs.update({
+                    "width": width,
+                    "height": height
+                })
+                
+                # HiDream models have multiple text encoders, handle if provided
+                if "prompt_2" in kwargs:
+                    generation_kwargs["prompt_2"] = self.truncate_prompt(kwargs["prompt_2"])
+                if "prompt_3" in kwargs:
+                    generation_kwargs["prompt_3"] = self.truncate_prompt(kwargs["prompt_3"])
+                if "prompt_4" in kwargs:
+                    generation_kwargs["prompt_4"] = self.truncate_prompt(kwargs["prompt_4"])
+                
+                # Set optimal parameters for HiDream
+                max_seq_len = self.model_config.parameters.get("max_sequence_length", 128)
+                generation_kwargs["max_sequence_length"] = max_seq_len
+                
+                # HiDream models use different guidance scale defaults
+                if guidance_scale is None or guidance_scale == 3.5:
+                    generation_kwargs["guidance_scale"] = 5.0
+                    logger.info("Using default guidance_scale=5.0 for HiDream model")
+                
+                logger.info(f"Using max_sequence_length={max_seq_len} for HiDream model")
             
             # Generate image
             logger.info(f"Generation parameters: steps={num_inference_steps}, guidance={guidance_scale}")
@@ -866,7 +1129,26 @@ class InferenceEngine:
             if hasattr(output, 'nsfw_content_detected') and output.nsfw_content_detected:
                 logger.warning("NSFW content detected by pipeline - this should not happen with safety checker disabled")
             
-            image = output.images[0]
+            # Special handling for video models that return multiple frames
+            if self.model_config.model_type == "video":
+                logger.info(f"Processing video output with {len(output.frames)} frames")
+                
+                # For now, return the first frame as a single image
+                # In the future, this could be extended to return a video file or GIF
+                if hasattr(output, 'frames') and len(output.frames) > 0:
+                    image = output.frames[0]
+                    logger.info("Extracted first frame from video generation")
+                else:
+                    # Fallback to images if frames not available
+                    image = output.images[0]
+                    logger.info("Using first image from video output")
+                
+                # TODO: Add option to save all frames or create a GIF
+                # frames = output.frames if hasattr(output, 'frames') else output.images
+                # save_video_frames(frames, prompt)
+            else:
+                # Standard single image output for other models
+                image = output.images[0]
             
             # Debug: Check image properties
             logger.info(f"Generated image size: {image.size}, mode: {image.mode}")
@@ -1011,6 +1293,23 @@ class InferenceEngine:
     
     def unload(self):
         """Unload model and free GPU memory"""
+        # Handle GGUF models
+        is_gguf_model = (
+            self.model_config and 
+            (self.model_config.model_type == "gguf" or 
+             (self.model_config.variant and "gguf" in self.model_config.variant.lower()))
+        )
+        
+        if is_gguf_model:
+            if GGUF_AVAILABLE and gguf_loader.is_loaded():
+                gguf_loader.unload_model()
+                logger.info("GGUF model unloaded")
+            
+            self.model_config = None
+            self.tokenizer = None
+            return
+        
+        # Handle regular diffusion models
         if self.pipeline:
             # Move to CPU to free GPU memory
             self.pipeline = self.pipeline.to("cpu")
@@ -1029,6 +1328,17 @@ class InferenceEngine:
     
     def is_loaded(self) -> bool:
         """Check if model is loaded"""
+        # Check GGUF models
+        is_gguf_model = (
+            self.model_config and 
+            (self.model_config.model_type == "gguf" or 
+             (self.model_config.variant and "gguf" in self.model_config.variant.lower()))
+        )
+        
+        if is_gguf_model:
+            return GGUF_AVAILABLE and gguf_loader.is_loaded()
+        
+        # Check regular pipeline models
         return self.pipeline is not None
     
     def load_lora_runtime(self, repo_id: str, weight_name: str = None, scale: float = 1.0):
@@ -1088,10 +1398,30 @@ class InferenceEngine:
         if not self.model_config:
             return None
         
-        return {
+        base_info = {
             "name": self.model_config.name,
             "type": self.model_config.model_type,
             "device": self.device,
             "variant": self.model_config.variant,
             "parameters": self.model_config.parameters
-        } 
+        }
+        
+        # Check if this is a GGUF model
+        is_gguf_model = (
+            self.model_config.model_type == "gguf" or 
+            (self.model_config.variant and "gguf" in self.model_config.variant.lower())
+        )
+        
+        # Add GGUF-specific information
+        if is_gguf_model and GGUF_AVAILABLE:
+            gguf_info = gguf_loader.get_model_info()
+            base_info.update(gguf_info)
+            base_info["gguf_available"] = True
+            base_info["gguf_loaded"] = gguf_loader.is_loaded()
+            base_info["is_gguf"] = True
+        else:
+            base_info["gguf_available"] = GGUF_AVAILABLE
+            base_info["gguf_loaded"] = False
+            base_info["is_gguf"] = is_gguf_model
+        
+        return base_info 

@@ -35,12 +35,10 @@ REQUIRED = [
     "jinja2>=3.0.0",
     "peft>=0.10.0",
     "numpy>=1.21.0",
-]
-
-# Optional dependencies for [full] installation
-FULL_EXTRAS = [
     "controlnet-aux>=0.0.7",
     "opencv-python>=4.8.0",
+    "stable-diffusion-cpp-python>=0.1.0",
+    "gguf>=0.1.0",
 ]
 
 setup(
@@ -76,7 +74,6 @@ setup(
             "isort>=5.12.0",
             "flake8>=6.0.0",
         ],
-        "full": FULL_EXTRAS,
     },
     entry_points={
         "console_scripts": [

@@ -1,0 +1,278 @@
+{
+  "models": {
+    "flux.1-dev-gguf-q2k": {
+      "repo_id": "city96/FLUX.1-dev-gguf",
+      "model_type": "flux",
+      "variant": "gguf-q2k",
+      "parameters": {
+        "num_inference_steps": 16,
+        "guidance_scale": 2.0,
+        "max_sequence_length": 512
+      },
+      "hardware_requirements": {
+        "min_vram_gb": 2,
+        "recommended_vram_gb": 4,
+        "min_ram_gb": 6,
+        "recommended_ram_gb": 8,
+        "disk_space_gb": 5,
+        "supported_devices": ["CUDA", "MPS", "CPU"],
+        "performance_notes": "Smallest GGUF version (4.03GB). Lowest quality but runs on very low-end hardware. Good for testing."
+      },
+      "license_info": {
+        "type": "FLUX.1-dev Non-Commercial License",
+        "requires_agreement": true,
+        "commercial_use": false
+      }
+    },
+
+    "flux.1-dev-gguf-q3ks": {
+      "repo_id": "city96/FLUX.1-dev-gguf",
+      "model_type": "flux",
+      "variant": "gguf-q3ks",
+      "parameters": {
+        "num_inference_steps": 16,
+        "guidance_scale": 2.0,
+        "max_sequence_length": 512
+      },
+      "hardware_requirements": {
+        "min_vram_gb": 3,
+        "recommended_vram_gb": 6,
+        "min_ram_gb": 8,
+        "recommended_ram_gb": 12,
+        "disk_space_gb": 6,
+        "supported_devices": ["CUDA", "MPS", "CPU"],
+        "performance_notes": "3-bit quantization (5.23GB). Better quality than Q2_K while still being compact."
+      },
+      "license_info": {
+        "type": "FLUX.1-dev Non-Commercial License",
+        "requires_agreement": true,
+        "commercial_use": false
+      }
+    },
+
+    "flux.1-dev-gguf-q4ks": {
+      "repo_id": "city96/FLUX.1-dev-gguf",
+      "model_type": "flux",
+      "variant": "gguf-q4ks",
+      "parameters": {
+        "num_inference_steps": 16,
+        "guidance_scale": 2.0,
+        "max_sequence_length": 512
+      },
+      "hardware_requirements": {
+        "min_vram_gb": 4,
+        "recommended_vram_gb": 8,
+        "min_ram_gb": 10,
+        "recommended_ram_gb": 16,
+        "disk_space_gb": 8,
+        "supported_devices": ["CUDA", "MPS", "CPU"],
+        "performance_notes": "4-bit quantization K_S (6.81GB). Sweet spot for quality vs size. Recommended for most users."
+      },
+      "license_info": {
+        "type": "FLUX.1-dev Non-Commercial License",
+        "requires_agreement": true,
+        "commercial_use": false
+      }
+    },
+
+    "flux.1-dev-gguf-q4-0": {
+      "repo_id": "city96/FLUX.1-dev-gguf",
+      "model_type": "flux",
+      "variant": "gguf-q4-0",
+      "parameters": {
+        "num_inference_steps": 16,
+        "guidance_scale": 2.0,
+        "max_sequence_length": 512
+      },
+      "hardware_requirements": {
+        "min_vram_gb": 4,
+        "recommended_vram_gb": 8,
+        "min_ram_gb": 10,
+        "recommended_ram_gb": 16,
+        "disk_space_gb": 8,
+        "supported_devices": ["CUDA", "MPS", "CPU"],
+        "performance_notes": "4-bit quantization Q4_0 (6.79GB). Alternative 4-bit format, slightly different quality characteristics."
+      },
+      "license_info": {
+        "type": "FLUX.1-dev Non-Commercial License",
+        "requires_agreement": true,
+        "commercial_use": false
+      }
+    },
+
+    "flux.1-dev-gguf-q4-1": {
+      "repo_id": "city96/FLUX.1-dev-gguf",
+      "model_type": "flux",
+      "variant": "gguf-q4-1",
+      "parameters": {
+        "num_inference_steps": 16,
+        "guidance_scale": 2.0,
+        "max_sequence_length": 512
+      },
+      "hardware_requirements": {
+        "min_vram_gb": 5,
+        "recommended_vram_gb": 8,
+        "min_ram_gb": 12,
+        "recommended_ram_gb": 16,
+        "disk_space_gb": 9,
+        "supported_devices": ["CUDA", "MPS", "CPU"],
+        "performance_notes": "4-bit quantization Q4_1 (7.53GB). Higher quality 4-bit variant with better precision."
+      },
+      "license_info": {
+        "type": "FLUX.1-dev Non-Commercial License",
+        "requires_agreement": true,
+        "commercial_use": false
+      }
+    },
+
+    "flux.1-dev-gguf-q5ks": {
+      "repo_id": "city96/FLUX.1-dev-gguf",
+      "model_type": "flux",
+      "variant": "gguf-q5ks",
+      "parameters": {
+        "num_inference_steps": 16,
+        "guidance_scale": 2.0,
+        "max_sequence_length": 512
+      },
+      "hardware_requirements": {
+        "min_vram_gb": 6,
+        "recommended_vram_gb": 10,
+        "min_ram_gb": 12,
+        "recommended_ram_gb": 18,
+        "disk_space_gb": 10,
+        "supported_devices": ["CUDA", "MPS", "CPU"],
+        "performance_notes": "5-bit quantization K_S (8.29GB). Excellent quality vs size balance for mid-range hardware."
+      },
+      "license_info": {
+        "type": "FLUX.1-dev Non-Commercial License",
+        "requires_agreement": true,
+        "commercial_use": false
+      }
+    },
+
+    "flux.1-dev-gguf-q5-0": {
+      "repo_id": "city96/FLUX.1-dev-gguf",
+      "model_type": "flux",
+      "variant": "gguf-q5-0",
+      "parameters": {
+        "num_inference_steps": 16,
+        "guidance_scale": 2.0,
+        "max_sequence_length": 512
+      },
+      "hardware_requirements": {
+        "min_vram_gb": 6,
+        "recommended_vram_gb": 10,
+        "min_ram_gb": 12,
+        "recommended_ram_gb": 18,
+        "disk_space_gb": 10,
+        "supported_devices": ["CUDA", "MPS", "CPU"],
+        "performance_notes": "5-bit quantization Q5_0 (8.27GB). Alternative 5-bit format with different precision characteristics."
+      },
+      "license_info": {
+        "type": "FLUX.1-dev Non-Commercial License",
+        "requires_agreement": true,
+        "commercial_use": false
+      }
+    },
+
+    "flux.1-dev-gguf-q5-1": {
+      "repo_id": "city96/FLUX.1-dev-gguf",
+      "model_type": "flux",
+      "variant": "gguf-q5-1",
+      "parameters": {
+        "num_inference_steps": 16,
+        "guidance_scale": 2.0,
+        "max_sequence_length": 512
+      },
+      "hardware_requirements": {
+        "min_vram_gb": 6,
+        "recommended_vram_gb": 10,
+        "min_ram_gb": 14,
+        "recommended_ram_gb": 20,
+        "disk_space_gb": 11,
+        "supported_devices": ["CUDA", "MPS", "CPU"],
+        "performance_notes": "5-bit quantization Q5_1 (9.01GB). Higher precision 5-bit variant, good quality."
+      },
+      "license_info": {
+        "type": "FLUX.1-dev Non-Commercial License",
+        "requires_agreement": true,
+        "commercial_use": false
+      }
+    },
+
+    "flux.1-dev-gguf-q6k": {
+      "repo_id": "city96/FLUX.1-dev-gguf",
+      "model_type": "flux",
+      "variant": "gguf-q6k",
+      "parameters": {
+        "num_inference_steps": 16,
+        "guidance_scale": 2.0,
+        "max_sequence_length": 512
+      },
+      "hardware_requirements": {
+        "min_vram_gb": 8,
+        "recommended_vram_gb": 12,
+        "min_ram_gb": 16,
+        "recommended_ram_gb": 24,
+        "disk_space_gb": 12,
+        "supported_devices": ["CUDA", "MPS", "CPU"],
+        "performance_notes": "6-bit quantization (9.86GB). High quality with reasonable size. Good for high-end hardware."
+      },
+      "license_info": {
+        "type": "FLUX.1-dev Non-Commercial License",
+        "requires_agreement": true,
+        "commercial_use": false
+      }
+    },
+
+    "flux.1-dev-gguf-q8": {
+      "repo_id": "city96/FLUX.1-dev-gguf",
+      "model_type": "flux",
+      "variant": "gguf-q8",
+      "parameters": {
+        "num_inference_steps": 16,
+        "guidance_scale": 2.0,
+        "max_sequence_length": 512
+      },
+      "hardware_requirements": {
+        "min_vram_gb": 10,
+        "recommended_vram_gb": 14,
+        "min_ram_gb": 18,
+        "recommended_ram_gb": 28,
+        "disk_space_gb": 15,
+        "supported_devices": ["CUDA", "MPS", "CPU"],
+        "performance_notes": "8-bit quantization (12.7GB). Very high quality, close to original. For powerful hardware."
+      },
+      "license_info": {
+        "type": "FLUX.1-dev Non-Commercial License",
+        "requires_agreement": true,
+        "commercial_use": false
+      }
+    },
+
+    "flux.1-dev-gguf-f16": {
+      "repo_id": "city96/FLUX.1-dev-gguf",
+      "model_type": "flux",
+      "variant": "gguf-f16",
+      "parameters": {
+        "num_inference_steps": 16,
+        "guidance_scale": 2.0,
+        "max_sequence_length": 512
+      },
+      "hardware_requirements": {
+        "min_vram_gb": 16,
+        "recommended_vram_gb": 24,
+        "min_ram_gb": 32,
+        "recommended_ram_gb": 48,
+        "disk_space_gb": 28,
+        "supported_devices": ["CUDA", "MPS"],
+        "performance_notes": "Full precision F16 (23.8GB). Highest quality, identical to original FLUX.1-dev. Requires high-end hardware."
+      },
+      "license_info": {
+        "type": "FLUX.1-dev Non-Commercial License",
+        "requires_agreement": true,
+        "commercial_use": false
+      }
+    }
+  }
+}
