@@ -99,6 +99,22 @@ curl -X POST http://localhost:8000/api/generate \
   --output image.png
 ```
 
+### 🔄 Update to Latest Version
+
+**Always use the latest version** for the newest features and bug fixes:
+
+```bash
+# Update to latest version
+pip uninstall ollamadiffuser
+pip install --no-cache-dir ollamadiffuser
+```
+
+This ensures you get:
+- 🐛 **Latest bug fixes**
+- ✨ **New features and improvements**  
+- 🚀 **Performance optimizations**
+- 🔒 **Security updates**
+
 ### GGUF Quick Start (Low VRAM)
 ```bash
 # For systems with limited VRAM (3GB+)
